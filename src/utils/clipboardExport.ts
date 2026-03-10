@@ -6,9 +6,10 @@ import type { Question } from '../store/usePaperStore';
 export const copyToHWP = async (title: string, questions: Question[]) => {
   try {
     const htmlString = generatePlatformHTML(title, questions);
+    const plainText = generateFallbackText(questions);
 
     const blobHtml = new Blob([htmlString], { type: 'text/html' });
-    const blobText = new Blob(['HWP로 붙여넣기 하세요.'], { type: 'text/plain' });
+    const blobText = new Blob([plainText], { type: 'text/plain' });
 
     const clipboardItem = new ClipboardItem({
       'text/html': blobHtml,
@@ -30,9 +31,10 @@ export const copySingleToHWP = async (question: Question, index: number) => {
   try {
     // 단일 문항용 HTML 구조 생성 (타이틀 제외, 하나의 문항만)
     const htmlString = generatePlatformHTML('', [question], index);
+    const plainText = generateFallbackText([question], index);
 
     const blobHtml = new Blob([htmlString], { type: 'text/html' });
-    const blobText = new Blob(['단일 문항 복사 완료'], { type: 'text/plain' });
+    const blobText = new Blob([plainText], { type: 'text/plain' });
 
     const clipboardItem = new ClipboardItem({
       'text/html': blobHtml,
@@ -45,6 +47,26 @@ export const copySingleToHWP = async (question: Question, index: number) => {
     console.error('단일 문항 복사 실패:', err);
     alert('단일 문항 복사에 실패했습니다.');
   }
+};
+
+const generateFallbackText = (questions: Question[], startIndex: number = 0) => {
+  return questions.map((q, index) => {
+    let text = `${startIndex + index + 1}. `;
+    if (q.type === 'text' && q.content) {
+      text += q.content.replace(/<[^>]+>/g, '') + '\n';
+    } else if (q.type === 'box-gnd' && q.boxList) {
+      text += '\n<보 기>\n' + q.boxList.map(item => `- ${item}`).join('\n') + '\n';
+    } else if (q.type === 'table' && q.tableData) {
+      text += '\n[표 데이터]\n';
+    } else if (q.type === 'image') {
+      text += '\n[이미지/그래프]\n';
+    }
+
+    if (q.options && q.options.length > 0) {
+      text += q.options.map((opt, optIdx) => `(${optIdx + 1}) ${opt}`).join('  ');
+    }
+    return text.trim();
+  }).join('\n\n');
 };
 
 const generatePlatformHTML = (title: string, questions: Question[], startIndex: number = 0) => {
@@ -86,16 +108,17 @@ const generatePlatformHTML = (title: string, questions: Question[], startIndex: 
       html += `</table>`;
     }
     else if (q.type === 'box-gnd' && q.boxList) {
-      // HWP에서 박스는 table(1x1)로 표현해야 테두리가 유지됨
+      // HWP에서 완벽한 박스를 렌더링하기 위해 가장 원시적인 HTML 구조를 사용합니다
+      // CSS 호환성에 구기지 않도록 inline table properties를 함께 넣습니다.
       html += `
-        <table style="width: 100%; border-collapse: collapse; border: 1px solid black; margin-bottom: 15px; margin-top: 10px;">
+        <table width="100%" border="1" cellspacing="0" cellpadding="0" style="width: 100%; border-collapse: collapse; border: 1px solid black; margin-bottom: 20px; margin-top: 15px;">
           <tr>
-            <td style="padding: 15px; text-align: center; font-weight: bold; font-family: serif; border-bottom: 1px dashed gray;">
+            <td align="center" style="padding: 10px; text-align: center; font-size: 15px; font-family: 'Batang', 'BatangChe', serif; border: none;">
               &lt;보 기&gt;
             </td>
           </tr>
           <tr>
-            <td style="padding: 15px; line-height: 1.8;">
+            <td style="padding: 10px 20px 20px 20px; line-height: 1.8; font-size: 15px; border: none;">
               ${q.boxList.map(item => `<div>${item}</div>`).join('')}
             </td>
           </tr>
@@ -107,14 +130,17 @@ const generatePlatformHTML = (title: string, questions: Question[], startIndex: 
     }
 
     // 2. 객관식 보기 렌더링
+    // 요구사항: 옆으로 1~5번 쫙 풀어서 나열, 동그라미 번호 필수
     if (q.options && q.options.length > 0) {
-      html += `<div style="margin-top: 10px; font-size: 15px; display: flex; flex-wrap: wrap; gap: 15px;">`;
+      // HWP에서 1줄에 5개를 나란히 놓기 위해서 table 레이아웃 사용이 가장 확실함
+      html += `<table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 15px; width: 100%;"><tr>`;
       q.options.forEach((opt, optIdx) => {
+        // 동그라미 기호 적용 (①②③④⑤)
         const circleNum = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧'][optIdx] || `(${optIdx + 1})`;
-        // HWP에서 inline-block 속성을 잘 못먹는 경우가 있으므로 span으로 쭉 나열
-        html += `<span style="margin-right: 20px; white-space: nowrap;">${circleNum} ${opt}</span>`;
+        // 사용자가 명시적으로 요구한 ① 문자열 사용
+        html += `<td style="font-size: 15px; padding-right: 15px; white-space: nowrap;">${circleNum}&nbsp;${opt}</td>`;
       });
-      html += `</div>`;
+      html += `</tr></table>`;
     }
 
     html += `

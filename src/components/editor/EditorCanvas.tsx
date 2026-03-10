@@ -22,7 +22,16 @@ const EditorCanvas: React.FC = () => {
                         <button
                             key={type}
                             className={`${classes.tabBtn} ${activeQuestion.type === type ? classes.activeTab : ''}`}
-                            onClick={() => updateQuestion(activeQuestion.id, { type })}
+                            onClick={() => {
+                                const updates: Partial<Question> = { type };
+                                if (type === 'table' && !activeQuestion.tableData) {
+                                    updates.tableData = { rows: 3, cols: 3, cells: [['', '', ''], ['', '', ''], ['', '', '']] };
+                                }
+                                if (type === 'box-gnd' && (!activeQuestion.boxList || activeQuestion.boxList.length === 0)) {
+                                    updates.boxList = ['ㄱ. ', 'ㄴ. '];
+                                }
+                                updateQuestion(activeQuestion.id, updates);
+                            }}
                         >
                             {type === 'text' && '기본 텍스트'}
                             {type === 'table' && '표 포함'}
