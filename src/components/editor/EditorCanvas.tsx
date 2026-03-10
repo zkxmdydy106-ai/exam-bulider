@@ -6,10 +6,11 @@ import TextBlock from './blocks/TextBlock';
 import TableBlock from './blocks/TableBlock';
 import BoxGndBlock from './blocks/BoxGndBlock';
 import DrawingBlock from './blocks/DrawingBlock';
+import GraphBlock from './blocks/GraphBlock';
 import OptionManager from './options/OptionManager';
 
 const EditorCanvas: React.FC = () => {
-    const { questions, activeQuestionId, updateQuestion } = usePaperStore();
+    const { questions, activeQuestionId, updateQuestion, updateBlock } = usePaperStore();
     const activeQuestion = questions.find((q: Question) => q.id === activeQuestionId);
 
     if (!activeQuestion) return null;
@@ -18,25 +19,39 @@ const EditorCanvas: React.FC = () => {
         <div className={classes.canvasWrapper}>
             <div className={classes.questionHeader}>
                 <div className={classes.questionTabs}>
-                    {(['text', 'table', 'box-gnd', 'image'] as const).map(type => (
+                    {(['text', 'table', 'box-gnd', 'image', 'graph'] as const).map(type => (
                         <button
                             key={type}
                             className={`${classes.tabBtn} ${activeQuestion.type === type ? classes.activeTab : ''}`}
                             onClick={() => {
-                                const updates: Partial<Question> = { type };
-                                if (type === 'table' && !activeQuestion.tableData) {
-                                    updates.tableData = { rows: 3, cols: 3, cells: [['', '', ''], ['', '', ''], ['', '', '']] };
+                                const currentTypes = activeQuestion.blocks?.map(b => b.type) || [];
+                                const newBlocks = [...(activeQuestion.blocks || [])];
+
+                                if (type === 'table' && !currentTypes.includes('table')) {
+                                    newBlocks.push({ blockId: `b_table_${Math.random().toString(36).substring(2, 9)}`, type: 'table', tableData: { rows: 3, cols: 3, cells: [['', '', ''], ['', '', ''], ['', '', '']] } });
                                 }
-                                if (type === 'box-gnd' && (!activeQuestion.boxList || activeQuestion.boxList.length === 0)) {
-                                    updates.boxList = ['ㄱ. ', 'ㄴ. '];
+                                if (type === 'box-gnd' && !currentTypes.includes('box-gnd')) {
+                                    newBlocks.push({ blockId: `b_box_${Math.random().toString(36).substring(2, 9)}`, type: 'box-gnd', boxList: ['ㄱ. ', 'ㄴ. '] });
                                 }
-                                updateQuestion(activeQuestion.id, updates);
+                                if (type === 'image' && !currentTypes.includes('image')) {
+                                    newBlocks.push({ blockId: `b_image_${Math.random().toString(36).substring(2, 9)}`, type: 'image', imageUrl: '' });
+                                }
+                                if (type === 'graph' && !currentTypes.includes('graph')) {
+                                    newBlocks.push({
+                                        blockId: `b_graph_${Math.random().toString(36).substring(2, 9)}`,
+                                        type: 'graph',
+                                        graphData: { axes: { xLabel: 'x', yLabel: 'y', showOrigin: true, domain: [-10, 10], range: [-10, 10] }, functions: [{ id: 'f1', expression: 'x^2', color: '#e03131', visible: true }], pointLabels: [] }
+                                    });
+                                }
+
+                                updateQuestion(activeQuestion.id, { type, blocks: newBlocks });
                             }}
                         >
                             {type === 'text' && '기본 텍스트'}
                             {type === 'table' && '표 포함'}
                             {type === 'box-gnd' && 'ㄱ/ㄴ/ㄷ 조합'}
                             {type === 'image' && '이미지/도형'}
+                            {type === 'graph' && '수학/그래프'}
                         </button>
                     ))}
                 </div>
@@ -62,33 +77,54 @@ const EditorCanvas: React.FC = () => {
 
                 <div className={classes.questionContentArea}>
                     {/* 동적 블록 렌더링 */}
-                    {activeQuestion.type === 'text' && (
-                        <TextBlock
-                            content={activeQuestion.content || ''}
-                            onChange={(content) => updateQuestion(activeQuestion.id, { content })}
-                        />
-                    )}
-
-                    {activeQuestion.type === 'table' && activeQuestion.tableData && (
-                        <TableBlock
-                            tableData={activeQuestion.tableData}
-                            onChange={(tableData) => updateQuestion(activeQuestion.id, { tableData })}
-                        />
-                    )}
-
-                    {activeQuestion.type === 'box-gnd' && activeQuestion.boxList && (
-                        <BoxGndBlock
-                            boxList={activeQuestion.boxList}
-                            onChange={(boxList) => updateQuestion(activeQuestion.id, { boxList })}
-                        />
-                    )}
-
-                    {activeQuestion.type === 'image' && (
-                        <DrawingBlock
-                            imageUrl={activeQuestion.imageUrl}
-                            onChange={(imageUrl) => updateQuestion(activeQuestion.id, { imageUrl })}
-                        />
-                    )}
+                    {activeQuestion.blocks?.map((block) => {
+                        if (block.type === 'text') {
+                            return (
+                                <TextBlock
+                                    key={block.blockId}
+                                    content={block.content}
+                                    onChange={(content) => updateBlock(activeQuestion.id, block.blockId, { content })}
+                                />
+                            );
+                        }
+                        if (block.type === 'table') {
+                            return (
+                                <TableBlock
+                                    key={block.blockId}
+                                    tableData={block.tableData}
+                                    onChange={(tableData) => updateBlock(activeQuestion.id, block.blockId, { tableData })}
+                                />
+                            );
+                        }
+                        if (block.type === 'box-gnd') {
+                            return (
+                                <BoxGndBlock
+                                    key={block.blockId}
+                                    boxList={block.boxList}
+                                    onChange={(boxList) => updateBlock(activeQuestion.id, block.blockId, { boxList })}
+                                />
+                            );
+                        }
+                        if (block.type === 'image') {
+                            return (
+                                <DrawingBlock
+                                    key={block.blockId}
+                                    imageUrl={block.imageUrl}
+                                    onChange={(imageUrl) => updateBlock(activeQuestion.id, block.blockId, { imageUrl })}
+                                />
+                            );
+                        }
+                        if (block.type === 'graph' && block.graphData) {
+                            return (
+                                <GraphBlock
+                                    key={block.blockId}
+                                    graphData={block.graphData}
+                                    onChange={(graphData) => updateBlock(activeQuestion.id, block.blockId, { graphData })}
+                                />
+                            );
+                        }
+                        return null;
+                    })}
 
                     {/* 객관식 보기 영역 */}
                     <div className={classes.optionsArea}>

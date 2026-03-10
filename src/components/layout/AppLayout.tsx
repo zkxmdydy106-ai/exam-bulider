@@ -3,6 +3,7 @@ import { usePaperStore } from '../../store/usePaperStore';
 import { copyToHWP, copySingleToHWP } from '../../utils/clipboardExport';
 import classes from './AppLayout.module.css';
 import EditorCanvas from '../editor/EditorCanvas';
+import MathSymbolPanel from '../editor/blocks/MathSymbolPanel';
 import { FileDown, Settings, Plus, Copy, Trash, GripVertical, FileText } from 'lucide-react';
 
 const AppLayout: React.FC = () => {
@@ -123,6 +124,10 @@ const AppLayout: React.FC = () => {
                                 >
                                     <Trash size={16} /> 삭제
                                 </button>
+
+                                <div style={{ marginTop: '16px' }}>
+                                    <MathSymbolPanel />
+                                </div>
                             </div>
                         ) : (
                             <p className={classes.muted}>문항을 선택하면 속성이 표시됩니다.</p>

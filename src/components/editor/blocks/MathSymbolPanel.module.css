@@ -1,0 +1,72 @@
+.panelContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+    border: 1px solid #dee2e6;
+    margin-top: 20px;
+}
+
+.sectionTitle {
+    font-size: 13px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.symbolGrid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+}
+
+.symbolBtn {
+    background: white;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 8px 0;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.symbolBtn:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.templateGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.templateBtn {
+    background: white;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+}
+
+.templateBtn:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.hintText {
+    font-size: 11px;
+    color: #868e96;
+    margin-top: 4px;
+    text-align: center;
+}

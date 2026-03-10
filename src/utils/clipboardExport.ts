@@ -52,15 +52,19 @@ export const copySingleToHWP = async (question: Question, index: number) => {
 const generateFallbackText = (questions: Question[], startIndex: number = 0) => {
   return questions.map((q, index) => {
     let text = `${startIndex + index + 1}. `;
-    if (q.type === 'text' && q.content) {
-      text += q.content.replace(/<[^>]+>/g, '') + '\n';
-    } else if (q.type === 'box-gnd' && q.boxList) {
-      text += '\n<보 기>\n' + q.boxList.map(item => `- ${item}`).join('\n') + '\n';
-    } else if (q.type === 'table' && q.tableData) {
-      text += '\n[표 데이터]\n';
-    } else if (q.type === 'image') {
-      text += '\n[이미지/그래프]\n';
-    }
+    q.blocks?.forEach(block => {
+      if (block.type === 'text' && block.content) {
+        text += block.content.replace(/<[^>]+>/g, '') + '\n';
+      } else if (block.type === 'box-gnd' && block.boxList) {
+        text += '\n<보 기>\n' + block.boxList.map(item => `- ${item}`).join('\n') + '\n';
+      } else if (block.type === 'table' && block.tableData) {
+        text += '\n[표 데이터]\n';
+      } else if (block.type === 'image') {
+        text += '\n[이미지/그래프]\n';
+      } else if (block.type === 'graph') {
+        text += '\n[수학/그래프]\n';
+      }
+    });
 
     if (q.options && q.options.length > 0) {
       text += q.options.map((opt, optIdx) => `(${optIdx + 1}) ${opt}`).join('  ');
@@ -88,46 +92,45 @@ const generatePlatformHTML = (title: string, questions: Question[], startIndex: 
     `;
 
     // 1. 블록 렌더링
-    if (q.type === 'text') {
-      let content = q.content || '';
-      if (q.metadata?.autoItalic) {
-        // 숫자/영문 자동 이탤릭 파싱 적용
-        content = applyAutoItalic(content);
+    q.blocks?.forEach(block => {
+      if (block.type === 'text') {
+        let content = block.content || '';
+        if (q.metadata?.autoItalic) {
+          content = applyAutoItalic(content);
+        }
+        html += `<div style="font-size: 15px; line-height: 1.6; margin-bottom: 15px;">${content}</div>`;
       }
-      html += `<div style="font-size: 15px; line-height: 1.6; margin-bottom: 15px;">${content}</div>`;
-    }
-    else if (q.type === 'table' && q.tableData) {
-      html += `<table style="width: 100%; border-collapse: collapse; border: 1px solid black; margin-bottom: 15px;">`;
-      q.tableData.cells.forEach(row => {
-        html += `<tr>`;
-        row.forEach(cell => {
-          html += `<td style="border: 1px solid black; padding: 8px; text-align: center;">${cell}</td>`;
+      else if (block.type === 'table' && block.tableData) {
+        html += `<table style="width: 100%; border-collapse: collapse; border: 1px solid black; margin-bottom: 15px;">`;
+        block.tableData.cells.forEach(row => {
+          html += `<tr>`;
+          row.forEach(cell => {
+            html += `<td style="border: 1px solid black; padding: 8px; text-align: center;">${cell}</td>`;
+          });
+          html += `</tr>`;
         });
-        html += `</tr>`;
-      });
-      html += `</table>`;
-    }
-    else if (q.type === 'box-gnd' && q.boxList) {
-      // HWP에서 완벽한 박스를 렌더링하기 위해 가장 원시적인 HTML 구조를 사용합니다
-      // CSS 호환성에 구기지 않도록 inline table properties를 함께 넣습니다.
-      html += `
-        <table width="100%" border="1" cellspacing="0" cellpadding="0" style="width: 100%; border-collapse: collapse; border: 1px solid black; margin-bottom: 20px; margin-top: 15px;">
-          <tr>
-            <td align="center" style="padding: 10px; text-align: center; font-size: 15px; font-family: 'Batang', 'BatangChe', serif; border: none;">
-              &lt;보 기&gt;
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 10px 20px 20px 20px; line-height: 1.8; font-size: 15px; border: none;">
-              ${q.boxList.map(item => `<div>${item}</div>`).join('')}
-            </td>
-          </tr>
-        </table>
-      `;
-    }
-    else if (q.type === 'image' && q.imageUrl) {
-      html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${q.imageUrl}" style="max-width: 100%; height: auto;" /></div>`;
-    }
+        html += `</table>`;
+      }
+      else if (block.type === 'box-gnd' && block.boxList) {
+        html += `
+          <table width="100%" border="1" cellspacing="0" cellpadding="0" style="width: 100%; border-collapse: collapse; border: 1px solid black; margin-bottom: 20px; margin-top: 15px;">
+            <tr>
+              <td align="center" style="padding: 10px; text-align: center; font-size: 15px; font-family: 'Batang', 'BatangChe', serif; border: none;">
+                &lt;보 기&gt;
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 10px 20px 20px 20px; line-height: 1.8; font-size: 15px; border: none;">
+                ${block.boxList.map(item => `<div>${item}</div>`).join('')}
+              </td>
+            </tr>
+          </table>
+        `;
+      }
+      else if (block.type === 'image' && block.imageUrl) {
+        html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${block.imageUrl}" style="max-width: 100%; height: auto;" /></div>`;
+      }
+    });
 
     // 2. 객관식 보기 렌더링
     // 요구사항: 옆으로 1~5번 쫙 풀어서 나열, 동그라미 번호 필수

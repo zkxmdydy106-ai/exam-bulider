@@ -52,6 +52,15 @@ const TextBlock: React.FC<TextBlockProps> = ({ content, onChange }) => {
         }
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        // Ctrl+M for Math Italic mode
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm') {
+            e.preventDefault();
+            document.execCommand('italic', false, '');
+            handleInput();
+        }
+    };
+
     const handleBlur = () => {
         if (contentEditableRef.current) {
             const parsed = parseMath(contentEditableRef.current.innerHTML);
@@ -95,6 +104,9 @@ const TextBlock: React.FC<TextBlockProps> = ({ content, onChange }) => {
                     </button>
                     <span className={classes.shortcutHint}>y^2, a_n, 1/4, integral</span>
                 </div>
+                <div className={classes.formatGroup}>
+                    <span className={classes.shortcutHint} style={{ marginLeft: '8px', color: '#1971c2', fontWeight: 600 }}>Ctrl+M: 영문/숫자 이탤릭(수학) 전환</span>
+                </div>
             </div>
             <div
                 ref={contentEditableRef}
@@ -102,8 +114,9 @@ const TextBlock: React.FC<TextBlockProps> = ({ content, onChange }) => {
                 contentEditable
                 onBlur={handleBlur}
                 onInput={handleInput}
+                onKeyDown={handleKeyDown}
                 suppressContentEditableWarning
-                data-placeholder="문제를 입력하세요..."
+                data-placeholder="문제를 입력하세요... (수식 로마자는 Ctrl+M 토글)"
             />
         </div>
     );
