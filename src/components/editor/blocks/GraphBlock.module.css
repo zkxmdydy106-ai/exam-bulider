@@ -118,3 +118,43 @@
 .delBtn:hover {
     background: #fff5f5;
 }
+
+.pointItem {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: white;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    font-size: 13px;
+    color: #495057;
+}
+
+.labelInput {
+    padding: 4px 6px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-family: 'Times New Roman', Times, serif;
+    font-style: italic;
+    font-size: 13px;
+    outline: none;
+    text-align: center;
+}
+
+.coordInput {
+    width: 50px;
+    padding: 4px 6px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 13px;
+    outline: none;
+    text-align: center;
+}
+
+.labelInput:focus,
+.coordInput:focus {
+    border-color: #339af0;
+    box-shadow: 0 0 0 2px rgba(51, 154, 240, 0.2);
+}

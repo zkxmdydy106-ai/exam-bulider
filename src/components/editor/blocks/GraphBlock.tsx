@@ -22,6 +22,7 @@ const COLORS = ['#e03131', '#1971c2', '#2f9e44', '#f59f00', '#9c36b5'];
 const GraphBlock: React.FC<GraphBlockProps> = ({ graphData, onChange }) => {
     const [axes] = useState(graphData?.axes || { xLabel: 'x', yLabel: 'y', showOrigin: true, domain: [-10, 10], range: [-10, 10] });
     const [functions, setFunctions] = useState<FunctionGraph[]>(graphData?.functions || [{ id: 'f1', expression: 'x^2', color: COLORS[0], visible: true }]);
+    const [pointLabels, setPointLabels] = useState(graphData?.pointLabels || []);
 
     const width = 400;
     const height = 300;
@@ -42,7 +43,7 @@ const GraphBlock: React.FC<GraphBlockProps> = ({ graphData, onChange }) => {
         onChange({
             axes,
             functions,
-            pointLabels: graphData?.pointLabels || []
+            pointLabels
         });
     };
 
@@ -51,7 +52,7 @@ const GraphBlock: React.FC<GraphBlockProps> = ({ graphData, onChange }) => {
             updateParent();
         }, 500);
         return () => clearTimeout(timer);
-    }, [axes, functions]);
+    }, [axes, functions, pointLabels]);
 
     const addFunction = () => {
         const newId = `f${Date.now()}`;
@@ -64,6 +65,19 @@ const GraphBlock: React.FC<GraphBlockProps> = ({ graphData, onChange }) => {
 
     const deleteFunction = (id: string) => {
         setFunctions(functions.filter(f => f.id !== id));
+    };
+
+    const addPointLabel = () => {
+        const newId = `p${Date.now()}`;
+        setPointLabels([...pointLabels, { id: newId, x: 0, y: 0, label: 'P', type: 'point' }]);
+    };
+
+    const updatePointLabel = (id: string, updates: any) => {
+        setPointLabels(pointLabels.map((p: any) => p.id === id ? { ...p, ...updates } : p));
+    };
+
+    const deletePointLabel = (id: string) => {
+        setPointLabels(pointLabels.filter((p: any) => p.id !== id));
     };
 
     // 매우 단순한 다항식 문자열 평가기 (MVP용 - 실제로는 mathjs 등을 사용해야 함)
@@ -131,6 +145,20 @@ const GraphBlock: React.FC<GraphBlockProps> = ({ graphData, onChange }) => {
                             fill="none"
                         />
                     ))}
+
+                    {/* 점과 라벨 */}
+                    {pointLabels.map((p: any) => {
+                        const sx = scaleX(Number(p.x) || 0);
+                        const sy = scaleY(Number(p.y) || 0);
+                        return (
+                            <g key={p.id}>
+                                <circle cx={sx} cy={sy} r="3" fill="#212529" />
+                                <text x={sx + 6} y={sy - 6} fontSize="14" fontStyle="italic" fill="#212529">
+                                    {p.label}
+                                </text>
+                            </g>
+                        );
+                    })}
                 </svg>
             </div>
 
@@ -159,6 +187,44 @@ const GraphBlock: React.FC<GraphBlockProps> = ({ graphData, onChange }) => {
                                 placeholder="예: x^2 - 2*x + 1"
                             />
                             <button className={classes.delBtn} onClick={() => deleteFunction(f.id)}>✕</button>
+                        </div>
+                    ))}
+                </div>
+
+                <div className={classes.panelHeader} style={{ marginTop: '20px' }}>
+                    <h4>점/라벨 표시</h4>
+                    <button className={classes.addBtn} onClick={addPointLabel}>+ 점 추가</button>
+                </div>
+
+                <div className={classes.functionList}>
+                    {pointLabels.map((p: any) => (
+                        <div key={p.id} className={classes.pointItem}>
+                            <input
+                                type="text"
+                                value={p.label}
+                                onChange={(e) => updatePointLabel(p.id, { label: e.target.value })}
+                                className={classes.labelInput}
+                                placeholder="라벨 (예: P)"
+                                style={{ width: '60px' }}
+                            />
+                            <span>(</span>
+                            <input
+                                type="number"
+                                value={p.x}
+                                onChange={(e) => updatePointLabel(p.id, { x: parseFloat(e.target.value) || 0 })}
+                                className={classes.coordInput}
+                                placeholder="x"
+                            />
+                            <span>,</span>
+                            <input
+                                type="number"
+                                value={p.y}
+                                onChange={(e) => updatePointLabel(p.id, { y: parseFloat(e.target.value) || 0 })}
+                                className={classes.coordInput}
+                                placeholder="y"
+                            />
+                            <span>)</span>
+                            <button className={classes.delBtn} onClick={() => deletePointLabel(p.id)}>✕</button>
                         </div>
                     ))}
                 </div>

@@ -24,27 +24,32 @@ const EditorCanvas: React.FC = () => {
                             key={type}
                             className={`${classes.tabBtn} ${activeQuestion.type === type ? classes.activeTab : ''}`}
                             onClick={() => {
-                                const currentTypes = activeQuestion.blocks?.map(b => b.type) || [];
-                                const newBlocks = [...(activeQuestion.blocks || [])];
+                                // If tab is clicked, replace the blocks completely to match the selected type
+                                // to mimic "changing the question type" rather than appending infinitely.
+                                // We always keep one text block as base.
+                                const initialBlocks: any[] = [];
 
-                                if (type === 'table' && !currentTypes.includes('table')) {
-                                    newBlocks.push({ blockId: `b_table_${Math.random().toString(36).substring(2, 9)}`, type: 'table', tableData: { rows: 3, cols: 3, cells: [['', '', ''], ['', '', ''], ['', '', '']] } });
-                                }
-                                if (type === 'box-gnd' && !currentTypes.includes('box-gnd')) {
-                                    newBlocks.push({ blockId: `b_box_${Math.random().toString(36).substring(2, 9)}`, type: 'box-gnd', boxList: ['ㄱ. ', 'ㄴ. '] });
-                                }
-                                if (type === 'image' && !currentTypes.includes('image')) {
-                                    newBlocks.push({ blockId: `b_image_${Math.random().toString(36).substring(2, 9)}`, type: 'image', imageUrl: '' });
-                                }
-                                if (type === 'graph' && !currentTypes.includes('graph')) {
-                                    newBlocks.push({
+                                initialBlocks.push({
+                                    blockId: `b_text_${Math.random().toString(36).substring(2, 9)}`,
+                                    type: 'text',
+                                    content: activeQuestion.blocks?.find(b => b.type === 'text')?.content || ''
+                                });
+
+                                if (type === 'table') {
+                                    initialBlocks.push({ blockId: `b_table_${Math.random().toString(36).substring(2, 9)}`, type: 'table', tableData: { rows: 3, cols: 3, cells: [['', '', ''], ['', '', ''], ['', '', '']] } });
+                                } else if (type === 'box-gnd') {
+                                    initialBlocks.push({ blockId: `b_box_${Math.random().toString(36).substring(2, 9)}`, type: 'box-gnd', boxList: ['ㄱ. ', 'ㄴ. '] });
+                                } else if (type === 'image') {
+                                    initialBlocks.push({ blockId: `b_image_${Math.random().toString(36).substring(2, 9)}`, type: 'image', imageUrl: '' });
+                                } else if (type === 'graph') {
+                                    initialBlocks.push({
                                         blockId: `b_graph_${Math.random().toString(36).substring(2, 9)}`,
                                         type: 'graph',
                                         graphData: { axes: { xLabel: 'x', yLabel: 'y', showOrigin: true, domain: [-10, 10], range: [-10, 10] }, functions: [{ id: 'f1', expression: 'x^2', color: '#e03131', visible: true }], pointLabels: [] }
                                     });
                                 }
 
-                                updateQuestion(activeQuestion.id, { type, blocks: newBlocks });
+                                updateQuestion(activeQuestion.id, { type, blocks: initialBlocks });
                             }}
                         >
                             {type === 'text' && '기본 텍스트'}

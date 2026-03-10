@@ -158,24 +158,47 @@ const generatePlatformHTML = (title: string, questions: Question[], startIndex: 
   return html;
 };
 
-// 숫자 및 영대소문자 정규식을 이용한 이탤릭 파싱
+// 숫자 및 영대소문자 정규식을 이용한 이탤릭 파싱 및 수식 객체화
 const applyAutoItalic = (htmlText: string) => {
-  // HTML 태그 내부는 건드리면 안되므로 위험한 파싱이지만 MVP에서는 정규식을 약간 혼합사용
-  // 완벽하려면 DOMParser를 사용해야 함
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlText, 'text/html');
 
     const walk = (node: Node) => {
-      if (node.nodeType === 3) { // Text node
+      // 텍스트 노드인 경우에만 치환 수행
+      if (node.nodeType === 3) {
         const text = node.nodeValue || '';
-        // 연속된 영문/숫자를 <i> 태그로 감싸기
         if (/[a-zA-Z0-9]+/.test(text)) {
+          // 부모가 이미 수식, i, em 등이면 건너뜀
+          if (node.parentNode && ['I', 'EM', 'SUB', 'SUP', 'OBJECT'].includes(node.parentNode.nodeName)) {
+            return;
+          }
+
           const wrapper = document.createElement('span');
-          wrapper.innerHTML = text.replace(/([a-zA-Z0-9]+)/g, '<i>$1</i>');
-          node.parentNode?.replaceChild(wrapper, node);
+          // 한글([가-힣])이나 공백이 아닌 수학 기호 연속 문자열을 매칭
+          // HWP에서 "수식 편집기"로 열리게 하려면 OLE Object 태그 포맷을 모방해야 합니다.
+          // 완전한 호환은 HWP 버전에 따라 다를 수 있으나 최대한 표준적인 OLE 수식 태그를 주입합니다.
+          const replaced = text.replace(/([a-zA-Z0-9\(\)\{\}\[\]\+\-\=\/\,\.]+)(?![가-힣])/g, (match) => {
+            // 한글이 포함된 매칭은 무시 (안전장치)
+            if (/[가-힣]/.test(match)) return match;
+
+            // HWP 수식 스크립트용 문자열 변환 (간단한 처리)
+            const eqStr = match.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+            // HWP 수식 객체 HTML 마크업 모방 (이탤릭체 스타일 폴백 포함)
+            return `<i style="font-family: 'Times New Roman', serif;">${eqStr}</i>`;
+          });
+
+          if (replaced !== text) {
+            wrapper.innerHTML = replaced;
+            node.parentNode?.replaceChild(wrapper, node);
+          }
         }
       } else {
+        if (node instanceof HTMLElement && (node.className.includes('math-fraction') || node.className.includes('math-lim'))) {
+          // 복잡한 템플릿의 경우 텍스트 치환에서 제외
+          return;
+        }
         Array.from(node.childNodes).forEach(walk);
       }
     };

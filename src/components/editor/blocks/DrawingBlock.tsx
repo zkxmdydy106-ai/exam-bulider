@@ -1,92 +1,101 @@
 import React, { useState, useRef, useEffect } from 'react';
 import classes from './DrawingBlock.module.css';
-import { Circle, Square, Download } from 'lucide-react';
+import { Circle, Square, Download, PenTool, Eraser } from 'lucide-react';
 
 interface DrawingBlockProps {
     imageUrl?: string;
     onChange: (imageUrl: string) => void;
 }
 
-type ShapeType = 'circle' | 'square' | 'triangle' | 'graph';
+type ShapeType = 'freehand' | 'circle' | 'square' | 'triangle';
 
 const DrawingBlock: React.FC<DrawingBlockProps> = ({ imageUrl, onChange }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [activeShape, setActiveShape] = useState<ShapeType>('graph');
+    const [activeShape, setActiveShape] = useState<ShapeType>('freehand');
+    const [isDrawing, setIsDrawing] = useState(false);
 
-    // 이 컴포넌트는 MVP에서 가장 기본적인 SVG 기반 도형 렌더링 후 
-    // DataURL로 변환하여 HWP 복사용 이미지 박스에 넣는 목적으로 만들어집니다.
+    useEffect(() => {
+        if (!imageUrl) {
+            clearCanvas();
+        }
+    }, [imageUrl]);
 
-    const drawShape = () => {
+    const clearCanvas = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    };
+
+    const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // 캔버스 초기화
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
 
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2;
-        ctx.fillStyle = 'transparent';
 
-        const cx = canvas.width / 2;
-        const cy = canvas.height / 2;
-
-        if (activeShape === 'circle') {
+        if (activeShape === 'freehand') {
+            setIsDrawing(true);
             ctx.beginPath();
-            ctx.arc(cx, cy, 60, 0, 2 * Math.PI);
-            ctx.stroke();
-        } else if (activeShape === 'square') {
-            ctx.strokeRect(cx - 60, cy - 60, 120, 120);
-        } else if (activeShape === 'triangle') {
-            ctx.beginPath();
-            ctx.moveTo(cx, cy - 60);
-            ctx.lineTo(cx + 60, cy + 60);
-            ctx.lineTo(cx - 60, cy + 60);
-            ctx.closePath();
-            ctx.stroke();
-        } else if (activeShape === 'graph') {
-            // X, Y 좌표축
-            ctx.beginPath();
-            // X축
-            ctx.moveTo(20, cy);
-            ctx.lineTo(canvas.width - 20, cy);
-            // Y축
-            ctx.moveTo(cx, 20);
-            ctx.lineTo(cx, canvas.height - 20);
-            ctx.stroke();
-
-            // 임의의 함수선 하나 추가 (예: 포물선)
-            ctx.beginPath();
-            ctx.strokeStyle = '#3b82f6';
-            for (let x = -50; x <= 50; x++) {
-                const drawX = cx + x * 2;
-                const drawY = cy - ((x * x) / 30) * 2;
-                if (x === -50) ctx.moveTo(drawX, drawY);
-                else ctx.lineTo(drawX, drawY);
+            ctx.moveTo(x, y);
+        } else {
+            // 원클릭 도형 붙이기
+            ctx.fillStyle = 'transparent';
+            if (activeShape === 'circle') {
+                ctx.beginPath();
+                ctx.arc(x, y, 30, 0, 2 * Math.PI);
+                ctx.stroke();
+            } else if (activeShape === 'square') {
+                ctx.strokeRect(x - 30, y - 30, 60, 60);
+            } else if (activeShape === 'triangle') {
+                ctx.beginPath();
+                ctx.moveTo(x, y - 30);
+                ctx.lineTo(x + 30, y + 30);
+                ctx.lineTo(x - 30, y + 30);
+                ctx.closePath();
+                ctx.stroke();
             }
-            ctx.stroke();
-
-            // 원점 O 표시
-            ctx.fillStyle = '#000';
-            ctx.font = '12px Arial';
-            ctx.fillText('O', cx - 15, cy + 15);
-            ctx.fillText('x', canvas.width - 20, cy + 15);
-            ctx.fillText('y', cx + 10, 20);
         }
     };
 
-    useEffect(() => {
-        drawShape();
-    }, [activeShape]);
+    const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        if (!isDrawing || activeShape !== 'freehand') return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        ctx.lineTo(x, y);
+        ctx.stroke();
+    };
+
+    const stopDrawing = () => {
+        if (isDrawing) {
+            const ctx = canvasRef.current?.getContext('2d');
+            if (ctx) {
+                ctx.closePath();
+            }
+            setIsDrawing(false);
+        }
+    };
 
     const handleSaveImage = () => {
         if (canvasRef.current) {
             const dataUrl = canvasRef.current.toDataURL('image/png');
             onChange(dataUrl);
-            alert('도형/그래프가 현재 문항에 이미지로 삽입되었습니다.');
+            alert('자유 도형 캔버스가 문항에 이미지로 삽입되었습니다.');
         }
     };
 
@@ -94,30 +103,42 @@ const DrawingBlock: React.FC<DrawingBlockProps> = ({ imageUrl, onChange }) => {
         <div className={classes.drawingContainer}>
             <div className={classes.toolbar}>
                 <button
-                    className={`${classes.toolBtn} ${activeShape === 'graph' ? classes.active : ''}`}
-                    onClick={() => setActiveShape('graph')}
-                    title="좌표평면 그래프"
+                    className={`${classes.toolBtn} ${activeShape === 'freehand' ? classes.active : ''}`}
+                    onClick={() => setActiveShape('freehand')}
+                    title="자유 그리기 (드래그)"
                 >
-                    📈 좌표 평면
+                    <PenTool size={16} /> 펜 그리기
                 </button>
+                <div style={{ width: '1px', background: '#e9ecef', margin: '0 4px' }} />
                 <button
                     className={`${classes.toolBtn} ${activeShape === 'circle' ? classes.active : ''}`}
                     onClick={() => setActiveShape('circle')}
+                    title="원 (클릭하여 배치)"
                 >
-                    <Circle size={16} /> 원
+                    <Circle size={16} />
                 </button>
                 <button
                     className={`${classes.toolBtn} ${activeShape === 'square' ? classes.active : ''}`}
                     onClick={() => setActiveShape('square')}
+                    title="사각형 (클릭하여 배치)"
                 >
-                    <Square size={16} /> 사각형
+                    <Square size={16} />
                 </button>
                 <button
                     className={`${classes.toolBtn} ${activeShape === 'triangle' ? classes.active : ''}`}
                     onClick={() => setActiveShape('triangle')}
-                    title="정삼각형"
+                    title="삼각형 (클릭하여 배치)"
                 >
-                    🔺 삼각형
+                    🔺
+                </button>
+                <div style={{ flex: 1 }} />
+                <button
+                    className={classes.toolBtn}
+                    onClick={clearCanvas}
+                    title="캔버스 비우기"
+                    style={{ color: '#fa5252' }}
+                >
+                    <Eraser size={16} /> 전체 지우기
                 </button>
             </div>
 
@@ -131,12 +152,17 @@ const DrawingBlock: React.FC<DrawingBlockProps> = ({ imageUrl, onChange }) => {
                     <div className={classes.editMode}>
                         <canvas
                             ref={canvasRef}
-                            width={300}
-                            height={250}
+                            width={400}
+                            height={300}
                             className={classes.drawingCanvas}
+                            onMouseDown={startDrawing}
+                            onMouseMove={draw}
+                            onMouseUp={stopDrawing}
+                            onMouseLeave={stopDrawing}
+                            style={{ cursor: activeShape === 'freehand' ? 'crosshair' : 'crosshair' }}
                         />
                         <button className={classes.saveBtn} onClick={handleSaveImage}>
-                            <Download size={16} /> 현재 캔버스 그림 삽입하기
+                            <Download size={16} /> 현재 캔버스 완성하기
                         </button>
                     </div>
                 )}

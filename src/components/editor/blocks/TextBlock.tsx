@@ -56,7 +56,29 @@ const TextBlock: React.FC<TextBlockProps> = ({ content, onChange }) => {
         // Ctrl+M for Math Italic mode
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm') {
             e.preventDefault();
-            document.execCommand('italic', false, '');
+            // document.execCommand('italic') is sometimes not enough for HWP. 
+            // We'll wrap the current selection in an i tag with Times New Roman.
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                if (range.toString().length > 0) {
+                    const span = document.createElement('i');
+                    span.style.fontFamily = "'Times New Roman', serif";
+                    span.appendChild(range.extractContents());
+                    range.insertNode(span);
+
+                    // Move cursor after the inserted span
+                    range.setStartAfter(span);
+                    range.setEndAfter(span);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                } else {
+                    // For empty selection, just toggle standard italic as fallback
+                    document.execCommand('italic', false, '');
+                }
+            } else {
+                document.execCommand('italic', false, '');
+            }
             handleInput();
         }
     };
