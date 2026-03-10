@@ -29,19 +29,19 @@ Error generating stack: `+e.message+`
             </td>
             <td style="vertical-align: top; padding-top: 5px;">
     `,z.type==="text"){let D=z.content||"";z.metadata?.autoItalic&&(D=jv(D)),f+=`<div style="font-size: 15px; line-height: 1.6; margin-bottom: 15px;">${D}</div>`}else z.type==="table"&&z.tableData?(f+='<table style="width: 100%; border-collapse: collapse; border: 1px solid black; margin-bottom: 15px;">',z.tableData.cells.forEach(D=>{f+="<tr>",D.forEach(H=>{f+=`<td style="border: 1px solid black; padding: 8px; text-align: center;">${H}</td>`}),f+="</tr>"}),f+="</table>"):z.type==="box-gnd"&&z.boxList?f+=`
-        <table style="width: 100%; border-collapse: collapse; border: 1px solid black; margin-bottom: 15px; margin-top: 10px;">
+        <table style="width: 100%; border-collapse: collapse; border: 1px solid black; margin-bottom: 20px; margin-top: 15px;">
           <tr>
-            <td style="padding: 15px; text-align: center; font-weight: bold; font-family: serif; border-bottom: 1px dashed gray;">
+            <td style="padding: 10px; text-align: center; font-size: 15px; font-family: 'Batang', serif; border: none;">
               &lt;보 기&gt;
             </td>
           </tr>
           <tr>
-            <td style="padding: 15px; line-height: 1.8;">
-              ${z.boxList.map(D=>`<div>${D}</div>`).join("")}
+            <td style="padding: 10px 20px 20px 20px; line-height: 1.8; font-size: 15px; border: none;">
+              ${z.boxList.map(D=>`<div style="margin-bottom: 5px;">${D}</div>`).join("")}
             </td>
           </tr>
         </table>
-      `:z.type==="image"&&z.imageUrl&&(f+=`<div style="text-align: center; margin-bottom: 15px;"><img src="${z.imageUrl}" style="max-width: 100%; height: auto;" /></div>`);z.options&&z.options.length>0&&(f+='<div style="margin-top: 10px; font-size: 15px; display: flex; flex-wrap: wrap; gap: 15px;">',z.options.forEach((D,H)=>{const N=["①","②","③","④","⑤","⑥","⑦","⑧"][H]||`(${H+1})`;f+=`<span style="margin-right: 20px; white-space: nowrap;">${N} ${D}</span>`}),f+="</div>"),f+=`
+      `:z.type==="image"&&z.imageUrl&&(f+=`<div style="text-align: center; margin-bottom: 15px;"><img src="${z.imageUrl}" style="max-width: 100%; height: auto;" /></div>`);z.options&&z.options.length>0&&(f+='<div style="margin-top: 15px; font-size: 15px; text-align: left;">',z.options.forEach((D,H)=>{const N=["①","②","③","④","⑤","⑥","⑦","⑧"][H]||`(${H+1})`;f+=`<span style="display: inline-block; margin-right: 30px; margin-bottom: 10px;">${N}&nbsp;&nbsp;${D}</span>`}),f+="</div>"),f+=`
             </td>
           </tr>
         </table>
