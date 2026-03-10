@@ -1,0 +1,69 @@
+.textBlockContainer {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background-color: var(--color-surface);
+    transition: border-color var(--transition-fast);
+}
+
+.textBlockContainer:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.toolbar {
+    display: flex;
+    padding: 0.5rem;
+    background-color: var(--color-bg);
+    border-bottom: 1px solid var(--color-border);
+    gap: 0.25rem;
+}
+
+.formatBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    background-color: transparent;
+    transition: all var(--transition-fast);
+}
+
+.formatBtn:hover {
+    background-color: var(--color-border);
+    color: var(--color-text-main);
+}
+
+.editorArea {
+    padding: 1rem;
+    min-height: 100px;
+    outline: none;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--color-text-main);
+}
+
+.editorArea:empty::before {
+    content: attr(data-placeholder);
+    color: var(--color-text-muted);
+    pointer-events: none;
+    display: block;
+    /* For Firefox */
+}
+
+/* Base styles for editor content */
+.editorArea p {
+    margin-bottom: 0.5rem;
+}
+
+.editorArea b,
+.editorArea strong {
+    font-weight: 700;
+}
+
+.editorArea i,
+.editorArea em {
+    font-style: italic;
+}
