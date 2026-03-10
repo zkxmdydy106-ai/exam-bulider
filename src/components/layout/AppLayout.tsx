@@ -2,6 +2,7 @@ import React from 'react';
 import { usePaperStore } from '../../store/usePaperStore';
 import { copyToHWP } from '../../utils/clipboardExport';
 import classes from './AppLayout.module.css';
+import EditorCanvas from '../editor/EditorCanvas';
 import { FileDown, Settings, Plus, Copy, Trash, GripVertical, FileText } from 'lucide-react';
 
 const AppLayout: React.FC = () => {
@@ -58,11 +59,7 @@ const AppLayout: React.FC = () => {
                 {/* Center Canvas - Editor */}
                 <section className={classes.editorCanvas}>
                     {activeQuestionId ? (
-                        <div className={classes.paperPlaceholder}>
-                            {/* This is a temporary placeholder before EditorCanvas component is created */}
-                            <h2>에디터 캔버스 ({activeQuestionId})</h2>
-                            <p>여기에 선택된 문항 편집 폼이 랜더링됩니다.</p>
-                        </div>
+                        <EditorCanvas />
                     ) : (
                         <div className={classes.emptyState}>
                             <Plus size={48} className={classes.emptyIcon} />
