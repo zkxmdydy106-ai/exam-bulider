@@ -5,7 +5,7 @@ import classes from './EditorCanvas.module.css';
 import TextBlock from './blocks/TextBlock';
 import TableBlock from './blocks/TableBlock';
 import BoxGndBlock from './blocks/BoxGndBlock';
-import ImageBlock from './blocks/ImageBlock';
+import DrawingBlock from './blocks/DrawingBlock';
 import OptionManager from './options/OptionManager';
 
 const EditorCanvas: React.FC = () => {
@@ -17,11 +17,19 @@ const EditorCanvas: React.FC = () => {
     return (
         <div className={classes.canvasWrapper}>
             <div className={classes.questionHeader}>
-                <div className={classes.questionTypeBadge}>
-                    {activeQuestion.type === 'text' && '기본 텍스트 문항'}
-                    {activeQuestion.type === 'table' && '표 포함 문항'}
-                    {activeQuestion.type === 'box-gnd' && 'ㄱ/ㄴ/ㄷ 조합 문항'}
-                    {activeQuestion.type === 'image' && '이미지 포함 문항'}
+                <div className={classes.questionTabs}>
+                    {(['text', 'table', 'box-gnd', 'image'] as const).map(type => (
+                        <button
+                            key={type}
+                            className={`${classes.tabBtn} ${activeQuestion.type === type ? classes.activeTab : ''}`}
+                            onClick={() => updateQuestion(activeQuestion.id, { type })}
+                        >
+                            {type === 'text' && '기본 텍스트'}
+                            {type === 'table' && '표 포함'}
+                            {type === 'box-gnd' && 'ㄱ/ㄴ/ㄷ 조합'}
+                            {type === 'image' && '이미지/도형'}
+                        </button>
+                    ))}
                 </div>
                 <div className={classes.questionTools}>
                     <button
@@ -67,7 +75,7 @@ const EditorCanvas: React.FC = () => {
                     )}
 
                     {activeQuestion.type === 'image' && (
-                        <ImageBlock
+                        <DrawingBlock
                             imageUrl={activeQuestion.imageUrl}
                             onChange={(imageUrl) => updateQuestion(activeQuestion.id, { imageUrl })}
                         />

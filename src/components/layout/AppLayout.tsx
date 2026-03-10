@@ -1,12 +1,37 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { usePaperStore } from '../../store/usePaperStore';
-import { copyToHWP } from '../../utils/clipboardExport';
+import { copyToHWP, copySingleToHWP } from '../../utils/clipboardExport';
 import classes from './AppLayout.module.css';
 import EditorCanvas from '../editor/EditorCanvas';
 import { FileDown, Settings, Plus, Copy, Trash, GripVertical, FileText } from 'lucide-react';
 
 const AppLayout: React.FC = () => {
-    const { title, questions, activeQuestionId, addQuestion, setActiveQuestion, deleteQuestion } = usePaperStore();
+    const { title, questions, activeQuestionId, addQuestion, setActiveQuestion, deleteQuestion, copyQuestion, reorderQuestions } = usePaperStore();
+
+    // Drag and Drop State
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+    const handleDragStart = (e: React.DragEvent, index: number) => {
+        setDraggedIndex(index);
+        e.dataTransfer.effectAllowed = 'move';
+        // HTML5 drag image can be customized here if needed
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault(); // Necessary to allow dropping
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+        e.preventDefault();
+        if (draggedIndex === null || draggedIndex === dropIndex) return;
+        reorderQuestions(draggedIndex, dropIndex);
+        setDraggedIndex(null);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedIndex(null);
+    };
 
     return (
         <div className={classes.appContainer}>
@@ -36,8 +61,13 @@ const AppLayout: React.FC = () => {
                         {questions.map((q, index) => (
                             <div
                                 key={q.id}
-                                className={`${classes.thumbnailItem} ${activeQuestionId === q.id ? classes.active : ''}`}
+                                className={`${classes.thumbnailItem} ${activeQuestionId === q.id ? classes.active : ''} ${draggedIndex === index ? classes.dragging : ''}`}
                                 onClick={() => setActiveQuestion(q.id)}
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, index)}
+                                onDragOver={handleDragOver}
+                                onDrop={(e) => handleDrop(e, index)}
+                                onDragEnd={handleDragEnd}
                             >
                                 <div className={classes.dragHandle}><GripVertical size={14} /></div>
                                 <div className={classes.thumbnailNo}>{index + 1}</div>
@@ -78,7 +108,15 @@ const AppLayout: React.FC = () => {
                         {activeQuestionId ? (
                             <div className={classes.propertiesGroup}>
                                 <label>선택 문항 번호: {questions.findIndex(q => q.id === activeQuestionId) + 1}</label>
-                                <button className={classes.actionBtn}><Copy size={16} /> 현재 문항 복제</button>
+                                <button className={classes.actionBtn} onClick={() => copyQuestion(activeQuestionId)}>
+                                    <Copy size={16} /> 현재 문항 복제 (목록에)
+                                </button>
+                                <button className={classes.actionBtn} onClick={() => {
+                                    const q = questions.find(q => q.id === activeQuestionId);
+                                    if (q) copySingleToHWP(q, questions.findIndex(q => q.id === activeQuestionId));
+                                }}>
+                                    <FileDown size={16} /> 현재 문항 복사 (HWP 클립보드)
+                                </button>
                                 <button
                                     className={`${classes.actionBtn} ${classes.danger}`}
                                     onClick={() => deleteQuestion(activeQuestionId)}

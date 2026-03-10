@@ -1,0 +1,104 @@
+.drawingContainer {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background-color: var(--color-surface);
+}
+
+.toolbar {
+    display: flex;
+    padding: 0.5rem;
+    background-color: var(--color-bg);
+    border-bottom: 1px solid var(--color-border);
+    gap: 0.5rem;
+}
+
+.toolBtn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    background-color: transparent;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.toolBtn:hover {
+    background-color: var(--color-surface-hover);
+    color: var(--color-text-main);
+}
+
+.toolBtn.active {
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
+    border-color: var(--color-primary-light);
+}
+
+.canvasArea {
+    padding: 1.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 250px;
+    background-color: #f8fafc;
+    /* Slightly darker to see the white canvas */
+}
+
+.editMode,
+.previewMode {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.drawingCanvas {
+    background-color: white;
+    border: 1px dashed var(--color-primary);
+    border-radius: 4px;
+    box-shadow: var(--shadow-sm);
+}
+
+.previewImage {
+    max-width: 100%;
+    max-height: 250px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+}
+
+.saveBtn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background-color: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.saveBtn:hover {
+    background-color: var(--color-primary-dark);
+}
+
+.clearBtn {
+    padding: 6px 12px;
+    background-color: white;
+    color: var(--color-danger);
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.clearBtn:hover {
+    background-color: #fef2f2;
+}
