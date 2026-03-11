@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type BlockType = 'text' | 'table' | 'box-gnd' | 'image' | 'graph';
+export type BlockType = 'text' | 'table' | 'box-gnd' | 'image' | 'graph' | 'ai-generator';
 
 export interface BaseBlock {
   blockId: string;
@@ -40,9 +40,17 @@ export interface GraphBlockData extends BaseBlock {
   };
 }
 
-export type Block = TextBlockData | TableBlockData | BoxGndBlockData | ImageBlockData | GraphBlockData;
+export interface AIGeneratorBlockData extends BaseBlock {
+  type: 'ai-generator';
+  prompt: string;
+  svgContent: string;
+  status: 'idle' | 'loading' | 'success' | 'error';
+  errorMsg?: string;
+}
 
-export type QuestionType = 'text' | 'table' | 'box-gnd' | 'image' | 'math-mixed' | 'graph';
+export type Block = TextBlockData | TableBlockData | BoxGndBlockData | ImageBlockData | GraphBlockData | AIGeneratorBlockData;
+
+export type QuestionType = 'text' | 'table' | 'box-gnd' | 'image' | 'math-mixed' | 'graph' | 'ai-generator';
 
 export interface Question {
   id: string;
@@ -108,6 +116,14 @@ export const usePaperStore = create<PaperState>((set) => ({
         blockId: `b_image_${Math.random().toString(36).substring(2, 9)}`,
         type: 'image',
         imageUrl: ''
+      });
+    } else if (type === 'ai-generator') {
+      initialBlocks.push({
+        blockId: `b_ai_${Math.random().toString(36).substring(2, 9)}`,
+        type: 'ai-generator',
+        prompt: '',
+        svgContent: '',
+        status: 'idle'
       });
     }
 

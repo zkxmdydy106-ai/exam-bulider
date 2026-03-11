@@ -1,4 +1,5 @@
 import type { Question } from '../store/usePaperStore';
+import { applyAutoItalic } from './textFormatters';
 
 /**
  * 상태 JSON을 HWP 호환 HTML Document로 파싱하여 클립보드에 주입하는 유틸리티
@@ -95,9 +96,7 @@ const generatePlatformHTML = (title: string, questions: Question[], startIndex: 
     q.blocks?.forEach(block => {
       if (block.type === 'text') {
         let content = block.content || '';
-        if (q.metadata?.autoItalic) {
-          content = applyAutoItalic(content);
-        }
+        content = applyAutoItalic(content);
         html += `<div style="font-size: 15px; line-height: 1.6; margin-bottom: 15px;">${content}</div>`;
       }
       else if (block.type === 'table' && block.tableData) {
@@ -105,7 +104,7 @@ const generatePlatformHTML = (title: string, questions: Question[], startIndex: 
         block.tableData.cells.forEach(row => {
           html += `<tr>`;
           row.forEach(cell => {
-            html += `<td style="border: 1px solid black; padding: 8px; text-align: center;">${cell}</td>`;
+            html += `<td style="border: 1px solid black; padding: 8px; text-align: center;">${applyAutoItalic(cell)}</td>`;
           });
           html += `</tr>`;
         });
@@ -121,7 +120,7 @@ const generatePlatformHTML = (title: string, questions: Question[], startIndex: 
             </tr>
             <tr>
               <td style="padding: 10px 20px 20px 20px; line-height: 1.8; font-size: 15px; border: none;">
-                ${block.boxList.map(item => `<div>${item}</div>`).join('')}
+                ${block.boxList.map(item => `<div>${applyAutoItalic(item)}</div>`).join('')}
               </td>
             </tr>
           </table>
@@ -141,7 +140,7 @@ const generatePlatformHTML = (title: string, questions: Question[], startIndex: 
         // 동그라미 기호 적용 (①②③④⑤)
         const circleNum = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧'][optIdx] || `(${optIdx + 1})`;
         // 사용자가 명시적으로 요구한 ① 문자열 사용
-        html += `<td style="font-size: 15px; padding-right: 15px; white-space: nowrap;">${circleNum}&nbsp;${opt}</td>`;
+        html += `<td style="font-size: 15px; padding-right: 15px; white-space: nowrap;">${circleNum}&nbsp;${applyAutoItalic(opt)}</td>`;
       });
       html += `</tr></table>`;
     }
@@ -156,56 +155,4 @@ const generatePlatformHTML = (title: string, questions: Question[], startIndex: 
 
   html += `</div>`;
   return html;
-};
-
-// 숫자 및 영대소문자 정규식을 이용한 이탤릭 파싱 및 수식 객체화
-const applyAutoItalic = (htmlText: string) => {
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlText, 'text/html');
-
-    const walk = (node: Node) => {
-      // 텍스트 노드인 경우에만 치환 수행
-      if (node.nodeType === 3) {
-        const text = node.nodeValue || '';
-        if (/[a-zA-Z0-9]+/.test(text)) {
-          // 부모가 이미 수식, i, em 등이면 건너뜀
-          if (node.parentNode && ['I', 'EM', 'SUB', 'SUP', 'OBJECT'].includes(node.parentNode.nodeName)) {
-            return;
-          }
-
-          const wrapper = document.createElement('span');
-          // 한글([가-힣])이나 공백이 아닌 수학 기호 연속 문자열을 매칭
-          // HWP에서 "수식 편집기"로 열리게 하려면 OLE Object 태그 포맷을 모방해야 합니다.
-          // 완전한 호환은 HWP 버전에 따라 다를 수 있으나 최대한 표준적인 OLE 수식 태그를 주입합니다.
-          const replaced = text.replace(/([a-zA-Z0-9\(\)\{\}\[\]\+\-\=\/\,\.]+)(?![가-힣])/g, (match) => {
-            // 한글이 포함된 매칭은 무시 (안전장치)
-            if (/[가-힣]/.test(match)) return match;
-
-            // HWP 수식 스크립트용 문자열 변환 (간단한 처리)
-            const eqStr = match.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-            // HWP 수식 객체 HTML 마크업 모방 (이탤릭체 스타일 폴백 포함)
-            return `<i style="font-family: 'Times New Roman', serif;">${eqStr}</i>`;
-          });
-
-          if (replaced !== text) {
-            wrapper.innerHTML = replaced;
-            node.parentNode?.replaceChild(wrapper, node);
-          }
-        }
-      } else {
-        if (node instanceof HTMLElement && (node.className.includes('math-fraction') || node.className.includes('math-lim'))) {
-          // 복잡한 템플릿의 경우 텍스트 치환에서 제외
-          return;
-        }
-        Array.from(node.childNodes).forEach(walk);
-      }
-    };
-
-    Array.from(doc.body.childNodes).forEach(walk);
-    return doc.body.innerHTML;
-  } catch (e) {
-    return htmlText;
-  }
 };

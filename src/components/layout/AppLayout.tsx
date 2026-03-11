@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePaperStore } from '../../store/usePaperStore';
 import { copyToHWP, copySingleToHWP } from '../../utils/clipboardExport';
 import classes from './AppLayout.module.css';
+import modalClasses from './AppLayout.modal.module.css';
 import EditorCanvas from '../editor/EditorCanvas';
 import MathSymbolPanel from '../editor/blocks/MathSymbolPanel';
 import { FileDown, Settings, Plus, Copy, Trash, GripVertical, FileText } from 'lucide-react';
@@ -11,6 +12,53 @@ const AppLayout: React.FC = () => {
 
     // Drag and Drop State
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+    // Settings Modal State
+    const [showSettings, setShowSettings] = useState(false);
+    const [apiKey, setApiKey] = useState('');
+
+    useEffect(() => {
+        setApiKey(localStorage.getItem('GEMINI_API_KEY') || '');
+
+        // 1. 초기 로드 시 자동저장 데이터 복원
+        const savedData = localStorage.getItem('MATH_PAPER_AUTOSAVE');
+        if (savedData) {
+            try {
+                const parsed = JSON.parse(savedData);
+                usePaperStore.setState({
+                    title: parsed.title,
+                    questions: parsed.questions,
+                    activeQuestionId: parsed.activeQuestionId
+                });
+            } catch (e) {
+                console.error('Failed to parse autosave data', e);
+            }
+        }
+
+        // 2. 50초 주기(Debounce) 자동 저장
+        let timeoutId: number;
+        const unsubscribe = usePaperStore.subscribe((state) => {
+            clearTimeout(timeoutId);
+            timeoutId = window.setTimeout(() => {
+                localStorage.setItem('MATH_PAPER_AUTOSAVE', JSON.stringify({
+                    title: state.title,
+                    questions: state.questions,
+                    activeQuestionId: state.activeQuestionId
+                }));
+            }, 50000); // 50 seconds debounce
+        });
+
+        return () => {
+            clearTimeout(timeoutId);
+            unsubscribe();
+        };
+    }, []);
+
+    const handleSaveSettings = () => {
+        localStorage.setItem('GEMINI_API_KEY', apiKey);
+        setShowSettings(false);
+        alert('설정이 저장되었습니다.');
+    };
 
     const handleDragStart = (e: React.DragEvent, index: number) => {
         setDraggedIndex(index);
@@ -43,7 +91,9 @@ const AppLayout: React.FC = () => {
                     <h1>{title}</h1>
                 </div>
                 <div className={classes.headerActions}>
-                    <button className={classes.btnSecondary}><Settings size={18} /> 설정</button>
+                    <button className={classes.btnSecondary} onClick={() => setShowSettings(true)}>
+                        <Settings size={18} /> 설정
+                    </button>
                     <button className={classes.btnPrimary} onClick={() => copyToHWP(title, questions)}>
                         <FileDown size={18} /> 전체 복사 (HWP)
                     </button>
@@ -135,6 +185,32 @@ const AppLayout: React.FC = () => {
                     </div>
                 </aside>
             </main>
+
+            {/* Settings Modal */}
+            {showSettings && (
+                <div className={modalClasses.modalOverlay}>
+                    <div className={modalClasses.modalContent}>
+                        <h2>환경 설정</h2>
+                        <div className={modalClasses.formGroup}>
+                            <label>Gemini API Key</label>
+                            <input
+                                type="password"
+                                value={apiKey}
+                                onChange={(e) => setApiKey(e.target.value)}
+                                placeholder="생성된 API 키 입력"
+                            />
+                            <p className={modalClasses.helpText}>AI 도형 기능을 사용하려면 Google AI Studio에서 발급받은 무료 API 키를 입력하세요. 앱의 비용 절감을 위해 브라우저 내부(로컬스토리지)에만 안전하게 보관됩니다.</p>
+                        </div>
+                        <div className={modalClasses.modalActions}>
+                            <button className={classes.btnSecondary} onClick={() => {
+                                setApiKey(localStorage.getItem('GEMINI_API_KEY') || '');
+                                setShowSettings(false);
+                            }}>취소</button>
+                            <button className={classes.btnPrimary} onClick={handleSaveSettings}>저장</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

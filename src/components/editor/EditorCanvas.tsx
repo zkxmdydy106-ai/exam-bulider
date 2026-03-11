@@ -7,6 +7,7 @@ import TableBlock from './blocks/TableBlock';
 import BoxGndBlock from './blocks/BoxGndBlock';
 import DrawingBlock from './blocks/DrawingBlock';
 import GraphBlock from './blocks/GraphBlock';
+import AIGeneratorBlock from './blocks/AIGeneratorBlock';
 import OptionManager from './options/OptionManager';
 
 const EditorCanvas: React.FC = () => {
@@ -19,7 +20,7 @@ const EditorCanvas: React.FC = () => {
         <div className={classes.canvasWrapper}>
             <div className={classes.questionHeader}>
                 <div className={classes.questionTabs}>
-                    {(['text', 'table', 'box-gnd', 'image', 'graph'] as const).map(type => (
+                    {(['text', 'table', 'box-gnd', 'image', 'graph', 'ai-generator'] as const).map(type => (
                         <button
                             key={type}
                             className={`${classes.tabBtn} ${activeQuestion.type === type ? classes.activeTab : ''}`}
@@ -47,6 +48,14 @@ const EditorCanvas: React.FC = () => {
                                         type: 'graph',
                                         graphData: { axes: { xLabel: 'x', yLabel: 'y', showOrigin: true, domain: [-10, 10], range: [-10, 10] }, functions: [{ id: 'f1', expression: 'x^2', color: '#e03131', visible: true }], pointLabels: [] }
                                     });
+                                } else if (type === 'ai-generator') {
+                                    initialBlocks.push({
+                                        blockId: `b_ai_${Math.random().toString(36).substring(2, 9)}`,
+                                        type: 'ai-generator',
+                                        prompt: '',
+                                        svgContent: '',
+                                        status: 'idle'
+                                    });
                                 }
 
                                 updateQuestion(activeQuestion.id, { type, blocks: initialBlocks });
@@ -57,6 +66,7 @@ const EditorCanvas: React.FC = () => {
                             {type === 'box-gnd' && 'ㄱ/ㄴ/ㄷ 조합'}
                             {type === 'image' && '이미지/도형'}
                             {type === 'graph' && '수학/그래프'}
+                            {type === 'ai-generator' && 'AI 도형 생성 (프롬프트)'}
                         </button>
                     ))}
                 </div>
@@ -125,6 +135,15 @@ const EditorCanvas: React.FC = () => {
                                     key={block.blockId}
                                     graphData={block.graphData}
                                     onChange={(graphData) => updateBlock(activeQuestion.id, block.blockId, { graphData })}
+                                />
+                            );
+                        }
+                        if (block.type === 'ai-generator') {
+                            return (
+                                <AIGeneratorBlock
+                                    key={block.blockId}
+                                    blockData={block as any}
+                                    onChange={(data: any) => updateBlock(activeQuestion.id, block.blockId, data)}
                                 />
                             );
                         }

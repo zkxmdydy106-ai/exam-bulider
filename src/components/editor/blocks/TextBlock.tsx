@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import classes from './TextBlock.module.css';
 import { Bold, Italic, Underline, Sigma } from 'lucide-react';
+import { applyAutoItalic } from '../../../utils/textFormatters';
 
 const parseMath = (html: string) => {
     let result = html;
@@ -23,6 +24,8 @@ const parseMath = (html: string) => {
     result = result.replace(/([a-zA-Z0-9]+)\/([a-zA-Z0-9]+)/g,
         '<span style="display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; font-size: 0.85em; line-height: 1.1; margin: 0 4px;"><span style="border-bottom: 1px solid; width: 100%; text-align: center;">$1</span><span>$2</span></span>'
     );
+    // 5. 숫자가 포함된 문자열 이탤릭 자동 적용
+    result = applyAutoItalic(result);
 
     return result;
 };

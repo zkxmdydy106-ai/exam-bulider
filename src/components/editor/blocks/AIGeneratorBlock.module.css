@@ -1,0 +1,90 @@
+.container {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    background-color: var(--color-surface);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.promptArea {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.input {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    outline: none;
+    transition: all var(--transition-fast);
+}
+
+.input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.generateBtn {
+    padding: 0.5rem 1rem;
+    background-color: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.generateBtn:hover {
+    background-color: var(--color-primary-hover);
+}
+
+.generateBtn:disabled {
+    background-color: var(--color-border);
+    cursor: not-allowed;
+}
+
+.canvasArea {
+    min-height: 200px;
+    border: 1px dashed var(--color-border-hover);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-bg);
+    overflow: auto;
+    padding: 1rem;
+}
+
+.emptyText {
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+}
+
+.errorText {
+    color: var(--color-danger);
+    font-size: 0.875rem;
+    padding: 0.75rem;
+    background-color: var(--color-danger-light);
+    border-radius: var(--radius-sm);
+}

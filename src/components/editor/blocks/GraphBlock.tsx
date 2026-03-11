@@ -172,11 +172,26 @@ const GraphBlock: React.FC<GraphBlockProps> = ({ graphData, onChange }) => {
                 <div className={classes.functionList}>
                     {functions.map((f, idx) => (
                         <div key={f.id} className={classes.functionItem}>
-                            <div
-                                className={classes.colorIndicator}
-                                style={{ backgroundColor: f.color }}
-                                onClick={() => updateFunction(f.id, { visible: !f.visible })}
-                                title="클릭하여 숨기기/보이기"
+                            <input
+                                type="color"
+                                value={f.color}
+                                onChange={(e) => updateFunction(f.id, { color: e.target.value })}
+                                title="색상 변경"
+                                style={{
+                                    width: '24px',
+                                    height: '24px',
+                                    padding: 0,
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    backgroundColor: 'transparent'
+                                }}
+                            />
+                            <input
+                                type="checkbox"
+                                checked={f.visible}
+                                onChange={(e) => updateFunction(f.id, { visible: e.target.checked })}
+                                title="보이기/숨기기"
+                                style={{ cursor: 'pointer', margin: 0 }}
                             />
                             <span className={classes.fLabel}>f_{idx + 1}(x) =</span>
                             <input

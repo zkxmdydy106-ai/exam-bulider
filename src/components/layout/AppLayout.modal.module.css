@@ -1,0 +1,63 @@
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.modalContent {
+    background-color: var(--color-surface);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    width: 90%;
+    max-width: 480px;
+    box-shadow: var(--shadow-lg);
+}
+
+.modalContent h2 {
+    margin-bottom: 1.5rem;
+    font-size: 1.25rem;
+    color: var(--color-text-main);
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+}
+
+.formGroup label {
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.formGroup input {
+    padding: 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    outline: none;
+}
+
+.formGroup input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+.helpText {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.modalActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
