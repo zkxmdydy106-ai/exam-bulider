@@ -9,7 +9,7 @@ const SYMBOLS = {
 const TEMPLATES = [
     {
         label: '분수 (Fraction)',
-        html: '<span class="math-fraction" style="display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;margin:0 2px;"><span class="num" style="border-bottom:1px solid currentColor;padding:0 2px;font-size:0.9em;line-height:1;">분자</span><span class="den" style="padding:0 2px;font-size:0.9em;line-height:1;">분모</span></span>&nbsp;',
+        html: '<span class="math-fraction" style="display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;margin:0 2px;"><span class="num" contenteditable="true" style="border-bottom:1px solid currentColor;padding:0 2px;font-size:0.9em;line-height:1;min-width:15px;text-align:center;">분자</span><span class="den" contenteditable="true" style="padding:0 2px;font-size:0.9em;line-height:1;min-width:15px;text-align:center;">분모</span></span>&nbsp;',
     },
     {
         label: '극한 (Limit)',

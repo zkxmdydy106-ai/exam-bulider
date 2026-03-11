@@ -59,16 +59,19 @@ const generateFallbackText = (questions: Question[], startIndex: number = 0) => 
       } else if (block.type === 'box-gnd' && block.boxList) {
         text += '\n<보 기>\n' + block.boxList.map(item => `- ${item}`).join('\n') + '\n';
       } else if (block.type === 'table' && block.tableData) {
-        text += '\n[표 데이터]\n';
+        // text += '\n[표 데이터]\n';
       } else if (block.type === 'image') {
-        text += '\n[이미지/그래프]\n';
+        // text += '\n[이미지/그래프]\n';
       } else if (block.type === 'graph') {
-        text += '\n[수학/그래프]\n';
+        // text += '\n[수학/그래프]\n';
       }
     });
 
     if (q.options && q.options.length > 0) {
-      text += q.options.map((opt, optIdx) => `(${optIdx + 1}) ${opt}`).join('  ');
+      text += q.options.map((opt, optIdx) => {
+        const circleNum = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧'][optIdx] || `(${optIdx + 1})`;
+        return `${circleNum} ${opt}`;
+      }).join('  ');
     }
     return text.trim();
   }).join('\n\n');
@@ -76,7 +79,7 @@ const generateFallbackText = (questions: Question[], startIndex: number = 0) => 
 
 const generatePlatformHTML = (title: string, questions: Question[], startIndex: number = 0) => {
   // HWP는 중첩된 최신 HTML보단, Flat 한 Table, p, span, basic inline style을 잘 인식함.
-  let html = `
+  let html = `<html><head><meta charset="utf-8"></head><body>
     <div style="font-family: 'Batang', 'Malgun Gothic', sans-serif; max-width: 800px;">
         ${title ? `<h1 style="text-align: center; font-size: 24px; margin-bottom: 30px;">${title}</h1>` : ''}
   `;
@@ -127,7 +130,18 @@ const generatePlatformHTML = (title: string, questions: Question[], startIndex: 
         `;
       }
       else if (block.type === 'image' && block.imageUrl) {
+        // base64로 캡처된 이미지는 HWP로 잘 붙어들어감
         html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${block.imageUrl}" style="max-width: 100%; height: auto;" /></div>`;
+      }
+      else if (block.type === 'ai-generator' && block.svgContent) {
+        // HWP는 네이티브 <svg> 대신 이미지를 선호하지만, <svg> 자체의 HTML 직렬화도 요즘 HWP 일부 버전은 이미지를 변환해서 받아주기도 합니다.
+        // 더 확실한 방법은 base64 svg로 바꾸는 것이지만, 우선 SVG 본문을 래핑하여 붙여넣습니다.
+        const encodedSvg = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(block.svgContent)));
+        html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${encodedSvg}" style="max-width: 100%; height: auto;" /></div>`;
+      }
+      else if (block.type === 'graph' && block.graphData) {
+        // GraphBlock을 SVG로 렌더링하도록 개선 필요 (이후 추가 작업)
+        // 현재는 placeholder
       }
     });
 
@@ -153,6 +167,6 @@ const generatePlatformHTML = (title: string, questions: Question[], startIndex: 
     `;
   });
 
-  html += `</div>`;
+  html += `</div></body></html>`;
   return html;
 };

@@ -83,6 +83,36 @@ const TextBlock: React.FC<TextBlockProps> = ({ content, onChange }) => {
                 document.execCommand('italic', false, '');
             }
             handleInput();
+            return;
+        }
+
+        // 첨자 등에서 우측 방향키로 빠져나오기
+        if (e.key === 'ArrowRight') {
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                if (range.collapsed) {
+                    const container = range.startContainer;
+                    const parent = container.nodeType === Node.TEXT_NODE ? container.parentElement : container as HTMLElement;
+                    
+                    if (parent && (parent.nodeName === 'SUP' || parent.nodeName === 'SUB')) {
+                        const len = container.nodeType === Node.TEXT_NODE ? (container.nodeValue?.length || 0) : parent.childNodes.length;
+                        if (range.startOffset === len) {
+                            e.preventDefault();
+                            const newRange = document.createRange();
+                            // 제로 위드 스페이스(보이지 않는 문자) 삽입하여 첨자 영역 탈출
+                            const zws = document.createTextNode('\u200B');
+                            parent.parentNode?.insertBefore(zws, parent.nextSibling);
+
+                            newRange.setStartAfter(zws);
+                            newRange.setEndAfter(zws);
+                            selection.removeAllRanges();
+                            selection.addRange(newRange);
+                            return;
+                        }
+                    }
+                }
+            }
         }
     };
 

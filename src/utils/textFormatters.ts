@@ -10,25 +10,42 @@ export const applyAutoItalic = (htmlText: string) => {
             // 텍스트 노드인 경우에만 치환 수행
             if (node.nodeType === 3) {
                 const text = node.nodeValue || '';
-                if (/[a-zA-Z0-9]+/.test(text)) {
-                    // 부모가 이미 수식, i, em 등이면 건너뜀
-                    if (node.parentNode && ['I', 'EM', 'SUB', 'SUP', 'OBJECT'].includes(node.parentNode.nodeName)) {
-                        return;
-                    }
+                if (!text.trim()) return;
 
+                const parent = node.parentNode as HTMLElement;
+                const parentName = parent?.nodeName;
+
+                // 1) 부모가 이미 수식, i, em 등이면 처리
+                if (parentName && ['I', 'EM', 'SUB', 'SUP', 'OBJECT'].includes(parentName)) {
+                    if (['I', 'EM'].includes(parentName)) {
+                        // 복붙 시 폰트 복구
+                        if (parent.style.fontFamily !== "'Times New Roman', serif") {
+                            parent.style.fontFamily = "'Times New Roman', serif";
+                        }
+                        // 한글 이탤릭 방지
+                        if (/[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(text)) {
+                            const wrapper = document.createElement('span');
+                            const replaced = text.replace(/([ㄱ-ㅎ|ㅏ-ㅣ|가-힣]+(?:[ \t]+[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]+)*)/g, '<span style="font-style: normal; font-family: \'Malgun Gothic\', sans-serif;">$1</span>');
+                            if (replaced !== text) {
+                                wrapper.innerHTML = replaced;
+                                parent.replaceChild(wrapper, node);
+                            }
+                        }
+                    }
+                    return;
+                }
+
+                if (/[a-zA-Z0-9]+/.test(text)) {
                     const wrapper = document.createElement('span');
                     // 숫자와 영어 매칭 (한글 제외)
                     const replaced = text.replace(/([a-zA-Z0-9]+)/g, (match) => {
-                        // HWP 수식 스크립트용 문자열 변환 (간단한 처리)
                         const eqStr = match.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-                        // HWP 수식 객체 HTML 마크업 모방 (이탤릭체 스타일 폴백 포함)
                         return `<i style="font-family: 'Times New Roman', serif;">${eqStr}</i>`;
                     });
 
                     if (replaced !== text) {
                         wrapper.innerHTML = replaced;
-                        node.parentNode?.replaceChild(wrapper, node);
+                        parent?.replaceChild(wrapper, node);
                     }
                 }
             } else {
