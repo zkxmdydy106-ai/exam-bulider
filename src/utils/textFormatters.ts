@@ -19,8 +19,8 @@ export const applyAutoItalic = (htmlText: string) => {
                 if (parentName && ['I', 'EM', 'SUB', 'SUP', 'OBJECT'].includes(parentName)) {
                     if (['I', 'EM'].includes(parentName)) {
                         // 복붙 시 폰트 복구
-                        if (parent.style.fontFamily !== "'Times New Roman', serif") {
-                            parent.style.fontFamily = "'Times New Roman', serif";
+                        if (parent.style.fontFamily !== "'Cambria Math', 'Times New Roman', serif") {
+                            parent.style.fontFamily = "'Cambria Math', 'Times New Roman', serif";
                         }
                         // 한글 이탤릭 방지
                         if (/[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(text)) {
@@ -35,12 +35,20 @@ export const applyAutoItalic = (htmlText: string) => {
                     return;
                 }
 
-                if (/[a-zA-Z0-9]+/.test(text)) {
+                if (/[a-zA-Z0-9+\-=<>]+/.test(text)) {
                     const wrapper = document.createElement('span');
+                    
+                    // 연산자 양옆에 얇은 공백(Thin Space) 추가하여 수식 가독성 향상 (HWP 폰트 매칭)
+                    // (이미 공백이 있는 경우에는 중복 추가하지 않음)
+                    let formattedText = text;
+                    formattedText = formattedText.replace(/([^\s])([+\-=<>])([^\s])/g, '$1\u2009$2\u2009$3');
+                    formattedText = formattedText.replace(/([^\s])([+\-=<>])\s/g, '$1\u2009$2 ');
+                    formattedText = formattedText.replace(/\s([+\-=<>])([^\s])/g, ' $1\u2009$2');
+
                     // 숫자와 영어 매칭 (한글 제외)
-                    const replaced = text.replace(/([a-zA-Z0-9]+)/g, (match) => {
+                    const replaced = formattedText.replace(/([a-zA-Z0-9]+)/g, (match) => {
                         const eqStr = match.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                        return `<i style="font-family: 'Times New Roman', serif;">${eqStr}</i>`;
+                        return `<i style="font-family: 'Cambria Math', 'Times New Roman', serif;">${eqStr}</i>`;
                     });
 
                     if (replaced !== text) {
