@@ -76,6 +76,22 @@
     padding: 1rem;
 }
 
+/* SVG가 확실히 보이도록 크기를 보장하는 렌더링 영역 */
+.svgRenderArea {
+    width: 100%;
+    min-height: 150px;
+    display: block;
+    text-align: center;
+}
+
+.svgRenderArea svg {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+    height: auto;
+    min-height: 100px;
+}
+
 .emptyText {
     color: var(--color-text-muted);
     font-size: 0.875rem;
