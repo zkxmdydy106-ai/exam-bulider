@@ -6,7 +6,7 @@ import { applyAutoItalic } from './textFormatters';
  */
 export const copyToHWP = async (title: string, questions: Question[]) => {
   try {
-    const htmlString = generatePlatformHTML(title, questions);
+    const htmlString = await generatePlatformHTML(title, questions);
     const plainText = generateFallbackText(questions);
 
     const blobHtml = new Blob([htmlString], { type: 'text/html' });
@@ -31,7 +31,7 @@ export const copyToHWP = async (title: string, questions: Question[]) => {
 export const copySingleToHWP = async (question: Question, index: number) => {
   try {
     // 단일 문항용 HTML 구조 생성 (타이틀 제외, 하나의 문항만)
-    const htmlString = generatePlatformHTML('', [question], index);
+    const htmlString = await generatePlatformHTML('', [question], index);
     const plainText = generateFallbackText([question], index);
 
     const blobHtml = new Blob([htmlString], { type: 'text/html' });
@@ -77,14 +77,59 @@ const generateFallbackText = (questions: Question[], startIndex: number = 0) => 
   }).join('\n\n');
 };
 
-const generatePlatformHTML = (title: string, questions: Question[], startIndex: number = 0) => {
+const svgToPngBase64 = (svgContent: string): Promise<string> => {
+  return new Promise((resolve) => {
+    try {
+      let svg = svgContent;
+      if (!svg.includes('xmlns=')) {
+        svg = svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+      
+      // HWP Canvas 베이킹을 위해 명시적인 픽셀 조절 (100% 같은 상대크기 배제)
+      // viewBox나 기본 비율은 유지하되 width/height를 강제 주입
+      if (svg.includes('width="100%"')) {
+          svg = svg.replace('width="100%"', 'width="400"');
+      }
+      if (svg.includes('height="100%"')) {
+          svg = svg.replace('height="100%"', 'height="300"');
+      }
+
+      const encodedSvg = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+      
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        // use original sizes, fallback to 400x300
+        canvas.width = img.width || 400;
+        canvas.height = img.height || 300;
+        
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#ffffff'; // HWP prefers solid background for transparency
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          resolve(encodedSvg);
+        }
+      };
+      img.onerror = () => resolve(encodedSvg);
+      img.src = encodedSvg;
+    } catch(e) {
+      resolve('');
+    }
+  });
+};
+
+const generatePlatformHTML = async (title: string, questions: Question[], startIndex: number = 0) => {
   // HWP는 중첩된 최신 HTML보단, Flat 한 Table, p, span, basic inline style을 잘 인식함.
   let html = `<html><head><meta charset="utf-8"></head><body>
     <div style="font-family: 'Batang', 'Malgun Gothic', sans-serif; max-width: 800px;">
         ${title ? `<h1 style="text-align: center; font-size: 24px; margin-bottom: 30px;">${title}</h1>` : ''}
   `;
 
-  questions.forEach((q, index) => {
+  for (let index = 0; index < questions.length; index++) {
+    const q = questions[index];
     html += `
       <div style="margin-bottom: 30px; page-break-inside: avoid;">
         <table style="width: 100%; border-collapse: collapse; border: none;">
@@ -96,7 +141,7 @@ const generatePlatformHTML = (title: string, questions: Question[], startIndex: 
     `;
 
     // 1. 블록 렌더링
-    q.blocks?.forEach(block => {
+    for (const block of (q.blocks || [])) {
       if (block.type === 'text') {
         let content = block.content || '';
         content = applyAutoItalic(content);
@@ -131,19 +176,19 @@ const generatePlatformHTML = (title: string, questions: Question[], startIndex: 
       }
       else if (block.type === 'image' && block.imageUrl) {
         // base64로 캡처된 이미지는 HWP로 잘 붙어들어감
-        html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${block.imageUrl}" style="max-width: 100%; height: auto;" /></div>`;
+        // HWP 호환성을 위해 max-width:100% 제거
+        html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${block.imageUrl}" /></div>`;
       }
       else if (block.type === 'ai-generator' && block.svgContent) {
-        // HWP는 네이티브 <svg> 대신 이미지를 선호하지만, <svg> 자체의 HTML 직렬화도 요즘 HWP 일부 버전은 이미지를 변환해서 받아주기도 합니다.
-        // 더 확실한 방법은 base64 svg로 바꾸는 것이지만, 우선 SVG 본문을 래핑하여 붙여넣습니다.
-        const encodedSvg = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(block.svgContent)));
-        html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${encodedSvg}" style="max-width: 100%; height: auto;" /></div>`;
+        // HWP는 SVG를 바로 그릴 수 없으므로, 캔버스를 통해 PNG로 베이킹함
+        const pngDataUrl = await svgToPngBase64(block.svgContent);
+        html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${pngDataUrl}" /></div>`;
       }
       else if (block.type === 'graph' && block.graphData) {
         // GraphBlock을 SVG로 렌더링하도록 개선 필요 (이후 추가 작업)
         // 현재는 placeholder
       }
-    });
+    }
 
     // 2. 객관식 보기 렌더링
     // 요구사항: 옆으로 1~5번 쫙 풀어서 나열, 동그라미 번호 필수
@@ -165,7 +210,7 @@ const generatePlatformHTML = (title: string, questions: Question[], startIndex: 
         </table>
       </div>
     `;
-  });
+  }
 
   html += `</div></body></html>`;
   return html;

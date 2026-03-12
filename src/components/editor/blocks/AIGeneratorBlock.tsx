@@ -59,10 +59,17 @@ const AIGeneratorBlock: React.FC<AIGeneratorBlockProps> = ({ blockData, onChange
             const data = await response.json();
             let textOutput = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-            // Extract SVG if the model wrap it in markdown ```xml or ```svg
             const svgMatch = textOutput.match(/<svg[\s\S]*?<\/svg>/);
             if (svgMatch) {
                 textOutput = svgMatch[0];
+                // 강제로 width/height 속성이 없거나 100%가 아니면 삽입하여 화면에 보이도록 함
+                if (!textOutput.includes('width=')) {
+                    textOutput = textOutput.replace('<svg', '<svg width="100%" height="100%"');
+                }
+                // HWP 렌더시에 viewBox 속성 기반 비율을 잡지 못하는 상황 대비 viewBox가 없으면 400x300 주입 (최소 보장)
+                if (!textOutput.includes('viewBox=')) {
+                    textOutput = textOutput.replace('<svg', '<svg viewBox="0 0 400 300"');
+                }
             } else {
                 throw new Error('응답에서 유효한 SVG 코드를 찾을 수 없습니다.');
             }
@@ -117,7 +124,7 @@ const AIGeneratorBlock: React.FC<AIGeneratorBlockProps> = ({ blockData, onChange
                 {(blockData.status === 'success' || blockData.svgContent) && (
                     <div
                         dangerouslySetInnerHTML={{ __html: blockData.svgContent }}
-                        style={{ maxWidth: '100%', maxHeight: '400px', display: 'flex', justifyContent: 'center' }}
+                        style={{ width: '100%', minHeight: '200px', maxWidth: '100%', maxHeight: '400px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
                     />
                 )}
             </div>
