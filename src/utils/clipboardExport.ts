@@ -2,23 +2,20 @@ import type { Question } from '../store/usePaperStore';
 import { applyAutoItalic } from './textFormatters';
 
 /**
- * 상태 JSON을 HWP 호환 HTML Document로 파싱하여 클립보드에 주입하는 유틸리티
- * HWP는 CSS flex, grid 등 최신 레이아웃을 무시하므로, 반드시 table + inline style 기반으로 직렬화
+ * HWP 호환 클립보드 복사 유틸리티
+ *
+ * 핵심 전략: ClipboardItem API 대신 document.execCommand('copy')를 사용
+ * → 브라우저가 Windows CF_HTML 형식을 자동으로 생성하므로
+ *   HWP가 <sup>, <sub>, <img> 등을 제대로 인식함
+ */
+
+/**
+ * 전체 시험지 → HWP 클립보드 복사
  */
 export const copyToHWP = async (title: string, questions: Question[]) => {
   try {
     const htmlString = await generatePlatformHTML(title, questions);
-    const plainText = generateFallbackText(questions);
-
-    const blobHtml = new Blob([htmlString], { type: 'text/html' });
-    const blobText = new Blob([plainText], { type: 'text/plain' });
-
-    const clipboardItem = new ClipboardItem({
-      'text/html': blobHtml,
-      'text/plain': blobText,
-    });
-
-    await navigator.clipboard.write([clipboardItem]);
+    await copyHTMLViaDOM(htmlString);
     alert('시험지가 클립보드에 복사되었습니다. 한글(HWP)에서 Ctrl+V 로 붙여넣으세요.');
   } catch (err) {
     console.error('클립보드 복사 실패:', err);
@@ -27,22 +24,12 @@ export const copyToHWP = async (title: string, questions: Question[]) => {
 };
 
 /**
- * 단일 문항을 HWP 클립보드에 복사
+ * 단일 문항 → HWP 클립보드 복사
  */
 export const copySingleToHWP = async (question: Question, index: number) => {
   try {
     const htmlString = await generatePlatformHTML('', [question], index);
-    const plainText = generateFallbackText([question], index);
-
-    const blobHtml = new Blob([htmlString], { type: 'text/html' });
-    const blobText = new Blob([plainText], { type: 'text/plain' });
-
-    const clipboardItem = new ClipboardItem({
-      'text/html': blobHtml,
-      'text/plain': blobText,
-    });
-
-    await navigator.clipboard.write([clipboardItem]);
+    await copyHTMLViaDOM(htmlString);
     alert(`${index + 1}번 문항이 HWP 클립보드에 복사되었습니다.`);
   } catch (err) {
     console.error('단일 문항 복사 실패:', err);
@@ -51,53 +38,100 @@ export const copySingleToHWP = async (question: Question, index: number) => {
 };
 
 /**
- * 평문(Plain Text) 폴백 생성
- * - 객관식 보기에 원문자(①②③④⑤) 사용
- * - 이미지/그래프 등은 텍스트가 없으므로 생략
+ * ★ 핵심 함수: HTML을 실제 DOM에 렌더링한 뒤 execCommand('copy')로 복사
+ *
+ * ClipboardItem API는 text/html만 넣지만,
+ * execCommand('copy')는 브라우저가 CF_HTML + CF_UNICODETEXT 등
+ * 다양한 Windows 클립보드 형식을 자동 생성하므로
+ * HWP가 이미지, 위첨자, 표 등을 훨씬 잘 인식한다.
  */
-const generateFallbackText = (questions: Question[], startIndex: number = 0) => {
-  return questions.map((q, index) => {
-    let text = `${startIndex + index + 1}. `;
-    q.blocks?.forEach(block => {
-      if (block.type === 'text' && block.content) {
-        text += block.content.replace(/<[^>]+>/g, '') + '\n';
-      } else if (block.type === 'box-gnd' && block.boxList) {
-        text += '\n<보 기>\n' + block.boxList.map(item => `- ${item}`).join('\n') + '\n';
-      }
+const copyHTMLViaDOM = (html: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    // 화면 밖에 숨겨진 임시 컨테이너를 만든다
+    const container = document.createElement('div');
+    container.style.position = 'fixed';
+    container.style.left = '-9999px';
+    container.style.top = '-9999px';
+    container.style.opacity = '0';
+    container.innerHTML = html;
+    document.body.appendChild(container);
+
+    // 이미지가 있을 경우 로드를 기다린다 (base64 이미지는 즉시 로드됨)
+    const images = container.querySelectorAll('img');
+    const imagePromises = Array.from(images).map(img => {
+      if (img.complete) return Promise.resolve();
+      return new Promise<void>((res) => {
+        img.onload = () => res();
+        img.onerror = () => res(); // 실패해도 계속 진행
+      });
     });
 
-    if (q.options && q.options.length > 0) {
-      text += q.options.map((opt, optIdx) => {
-        const circleNum = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧'][optIdx] || `(${optIdx + 1})`;
-        return `${circleNum} ${opt}`;
-      }).join('  ');
-    }
-    return text.trim();
-  }).join('\n\n');
+    Promise.all(imagePromises).then(() => {
+      try {
+        // 컨테이너 전체 선택
+        const range = document.createRange();
+        range.selectNodeContents(container);
+        const selection = window.getSelection();
+        if (selection) {
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+
+        // execCommand('copy')로 복사 — Windows CF_HTML 형식 자동 생성
+        const success = document.execCommand('copy');
+
+        // 선택 해제 및 임시 컨테이너 제거
+        if (selection) selection.removeAllRanges();
+        document.body.removeChild(container);
+
+        if (success) {
+          resolve();
+        } else {
+          // execCommand 실패 시 fallback으로 ClipboardItem API 시도
+          fallbackClipboardCopy(html).then(resolve).catch(reject);
+        }
+      } catch (e) {
+        document.body.removeChild(container);
+        fallbackClipboardCopy(html).then(resolve).catch(reject);
+      }
+    });
+  });
 };
 
 /**
- * SVG 문자열을 Canvas에 그려서 PNG Base64 data URL로 변환
- * HWP는 <img src="data:image/svg+xml;..."> 형태를 전혀 인식하지 못하므로
- * 반드시 PNG로 래스터화(bake)해야 한다.
+ * Fallback: ClipboardItem API (execCommand가 동작하지 않을 경우)
+ */
+const fallbackClipboardCopy = async (html: string) => {
+  const blobHtml = new Blob([html], { type: 'text/html' });
+  const blobText = new Blob([html.replace(/<[^>]+>/g, '')], { type: 'text/plain' });
+  const clipboardItem = new ClipboardItem({
+    'text/html': blobHtml,
+    'text/plain': blobText,
+  });
+  await navigator.clipboard.write([clipboardItem]);
+};
+
+/**
+ * SVG 문자열을 Canvas에 그려서 PNG data URL로 변환
+ * HWP는 data:image/svg+xml 형식을 인식하지 못하므로 반드시 PNG로 래스터화
  */
 const svgToPngBase64 = (svgContent: string, defaultWidth = 400, defaultHeight = 300): Promise<string> => {
   return new Promise((resolve) => {
     try {
       let svg = svgContent;
 
-      // xmlns가 없으면 Canvas에서 렌더링 불가하므로 추가
+      // xmlns 필수 (Canvas 렌더링에 필요)
       if (!svg.includes('xmlns=')) {
         svg = svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
       }
 
-      // 상대 크기(100%, auto 등)를 절대 픽셀로 교체 — Canvas는 상대크기를 해석 못함
+      // 상대 크기 → 절대 픽셀로 변환 (Canvas는 상대크기 해석 불가)
       svg = svg.replace(/width="100%"/g, `width="${defaultWidth}"`);
       svg = svg.replace(/height="100%"/g, `height="${defaultHeight}"`);
       svg = svg.replace(/width="auto"/g, `width="${defaultWidth}"`);
       svg = svg.replace(/height="auto"/g, `height="${defaultHeight}"`);
 
-      // width/height 속성이 아예 없으면 강제 삽입
+      // width/height가 아예 없으면 삽입
       if (!svg.match(/width=["']\d+/)) {
         svg = svg.replace('<svg', `<svg width="${defaultWidth}"`);
       }
@@ -110,7 +144,6 @@ const svgToPngBase64 = (svgContent: string, defaultWidth = 400, defaultHeight = 
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // 실제 이미지 크기 사용, 부정확하면 기본 크기 사용
         const w = (img.naturalWidth && img.naturalWidth > 1) ? img.naturalWidth : defaultWidth;
         const h = (img.naturalHeight && img.naturalHeight > 1) ? img.naturalHeight : defaultHeight;
         canvas.width = w;
@@ -118,32 +151,27 @@ const svgToPngBase64 = (svgContent: string, defaultWidth = 400, defaultHeight = 
 
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          // HWP는 투명 PNG를 검은색으로 표시할 수 있으므로 흰색 배경 강제
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, w, h);
           ctx.drawImage(img, 0, 0, w, h);
           resolve(canvas.toDataURL('image/png'));
         } else {
-          // Canvas context 실패 시 SVG data URL 그대로 전달 (최후의 수단)
           resolve(encodedSvg);
         }
       };
       img.onerror = () => {
-        // SVG 파싱 실패 시 빈 문자열 반환
-        console.warn('SVG를 이미지로 변환하는 데 실패했습니다:', svgContent.substring(0, 100));
+        console.warn('SVG→PNG 변환 실패');
         resolve('');
       };
       img.src = encodedSvg;
     } catch (e) {
-      console.error('svgToPngBase64 오류:', e);
       resolve('');
     }
   });
 };
 
 /**
- * GraphBlock의 graphData로부터 SVG 문자열을 직접 생성
- * (GraphBlock.tsx의 렌더링 로직을 서버사이드에서 재현)
+ * GraphBlock 데이터 → SVG 문자열 직접 생성
  */
 const renderGraphToSvg = (graphData: any): string => {
   const width = 400;
@@ -157,38 +185,29 @@ const renderGraphToSvg = (graphData: any): string => {
     const [minX, maxX] = axes.domain;
     return margin + ((x - minX) / (maxX - minX)) * (width - 2 * margin);
   };
-
   const scaleY = (y: number) => {
     const [minY, maxY] = axes.range;
     return height - margin - ((y - minY) / (maxY - minY)) * (height - 2 * margin);
   };
-
   const evaluateMock = (expr: string, x: number) => {
     try {
       const jsExpr = expr.replace(/\^/g, '**');
       const fn = new Function('x', `return ${jsExpr}`);
       return fn(x);
-    } catch {
-      return NaN;
-    }
+    } catch { return NaN; }
   };
 
-  let svgParts: string[] = [];
-  svgParts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`);
-  // 흰색 배경
-  svgParts.push(`<rect width="${width}" height="${height}" fill="white"/>`);
-  // 축
-  svgParts.push(`<line x1="${margin}" y1="${scaleY(0)}" x2="${width - margin}" y2="${scaleY(0)}" stroke="#ccc" stroke-width="1"/>`);
-  svgParts.push(`<line x1="${scaleX(0)}" y1="${margin}" x2="${scaleX(0)}" y2="${height - margin}" stroke="#ccc" stroke-width="1"/>`);
-  // 화살표
-  svgParts.push(`<polygon points="${width - margin},${scaleY(0) - 4} ${width - margin + 8},${scaleY(0)} ${width - margin},${scaleY(0) + 4}" fill="#333"/>`);
-  svgParts.push(`<polygon points="${scaleX(0) - 4},${margin} ${scaleX(0)},${margin - 8} ${scaleX(0) + 4},${margin}" fill="#333"/>`);
-  // 라벨
-  if (axes.showOrigin) svgParts.push(`<text x="${scaleX(0) - 15}" y="${scaleY(0) + 15}" font-size="14" font-style="italic">O</text>`);
-  svgParts.push(`<text x="${width - margin + 15}" y="${scaleY(0) + 5}" font-size="14" font-style="italic">${axes.xLabel}</text>`);
-  svgParts.push(`<text x="${scaleX(0) - 5}" y="${margin - 15}" font-size="14" font-style="italic" text-anchor="middle">${axes.yLabel}</text>`);
+  let parts: string[] = [];
+  parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`);
+  parts.push(`<rect width="${width}" height="${height}" fill="white"/>`);
+  parts.push(`<line x1="${margin}" y1="${scaleY(0)}" x2="${width - margin}" y2="${scaleY(0)}" stroke="#ccc" stroke-width="1"/>`);
+  parts.push(`<line x1="${scaleX(0)}" y1="${margin}" x2="${scaleX(0)}" y2="${height - margin}" stroke="#ccc" stroke-width="1"/>`);
+  parts.push(`<polygon points="${width - margin},${scaleY(0) - 4} ${width - margin + 8},${scaleY(0)} ${width - margin},${scaleY(0) + 4}" fill="#333"/>`);
+  parts.push(`<polygon points="${scaleX(0) - 4},${margin} ${scaleX(0)},${margin - 8} ${scaleX(0) + 4},${margin}" fill="#333"/>`);
+  if (axes.showOrigin) parts.push(`<text x="${scaleX(0) - 15}" y="${scaleY(0) + 15}" font-size="14" font-style="italic">O</text>`);
+  parts.push(`<text x="${width - margin + 15}" y="${scaleY(0) + 5}" font-size="14" font-style="italic">${axes.xLabel}</text>`);
+  parts.push(`<text x="${scaleX(0) - 5}" y="${margin - 15}" font-size="14" font-style="italic" text-anchor="middle">${axes.yLabel}</text>`);
 
-  // 함수 그래프
   for (const f of functions) {
     if (!f.visible) continue;
     const [minX, maxX] = axes.domain;
@@ -197,50 +216,41 @@ const renderGraphToSvg = (graphData: any): string => {
     for (let x = minX; x <= maxX; x += step) {
       const y = evaluateMock(f.expression, x);
       if (isNaN(y) || y < axes.range[0] - 5 || y > axes.range[1] + 5) continue;
-      const svgX = scaleX(x);
-      const svgY = scaleY(y);
-      path += (path === '' ? `M ${svgX} ${svgY} ` : `L ${svgX} ${svgY} `);
+      path += (path === '' ? `M ${scaleX(x)} ${scaleY(y)} ` : `L ${scaleX(x)} ${scaleY(y)} `);
     }
-    if (path) svgParts.push(`<path d="${path}" stroke="${f.color}" stroke-width="2" fill="none"/>`);
+    if (path) parts.push(`<path d="${path}" stroke="${f.color}" stroke-width="2" fill="none"/>`);
   }
 
-  // 점과 라벨
   for (const p of pointLabels) {
     const sx = scaleX(Number(p.x) || 0);
     const sy = scaleY(Number(p.y) || 0);
-    svgParts.push(`<circle cx="${sx}" cy="${sy}" r="3" fill="#212529"/>`);
-    svgParts.push(`<text x="${sx + 6}" y="${sy - 6}" font-size="14" font-style="italic" fill="#212529">${p.label}</text>`);
+    parts.push(`<circle cx="${sx}" cy="${sy}" r="3" fill="#212529"/>`);
+    parts.push(`<text x="${sx + 6}" y="${sy - 6}" font-size="14" font-style="italic" fill="#212529">${p.label}</text>`);
   }
 
-  svgParts.push('</svg>');
-  return svgParts.join('\n');
+  parts.push('</svg>');
+  return parts.join('\n');
 };
 
 /**
- * HWP에서 CSS display:inline-flex 기반 분수를 인식하지 못하는 문제 대응
- * inline-flex 분수 HTML을 a/b 형태의 순수 텍스트로 치환
+ * CSS inline-flex 분수를 HWP 호환 형태로 치환
  */
 const sanitizeFractionsForHWP = (html: string): string => {
-  // CSS inline-flex 분수 구조를 감지하여 분자/분모 텍스트만 추출
   return html.replace(
     /<span[^>]*display:\s*inline-flex[^>]*flex-direction:\s*column[^>]*>[^<]*<span[^>]*border-bottom[^>]*>([^<]*)<\/span>[^<]*<span[^>]*>([^<]*)<\/span>[^<]*<\/span>/gi,
-    (_, numerator, denominator) => {
-      // HWP 호환: 분수는 단순히 분자/분모 형태로 대체
-      return `<span style="font-size:15px;">${numerator.trim()}/${denominator.trim()}</span>`;
-    }
+    (_, numerator, denominator) => `<span style="font-size:15px;">${numerator.trim()}/${denominator.trim()}</span>`
   );
 };
 
 /**
- * HWP 호환 HTML 전체 구조 생성
+ * HWP 호환 HTML 생성
  * - table 레이아웃 기반 (HWP가 가장 잘 인식)
- * - 이미지/SVG는 모두 PNG data URL로 베이킹
- * - <sup>, <sub> 태그는 HWP가 인식하므로 그대로 유지
+ * - <sup>, <sub> 태그 그대로 유지 (execCommand copy 시 CF_HTML로 보존됨)
+ * - 이미지는 PNG data URL + 명시적 width/height
  */
 const generatePlatformHTML = async (title: string, questions: Question[], startIndex: number = 0) => {
-  let html = `<html><head><meta charset="utf-8"></head><body>
-    <div style="font-family: 'Batang', 'Malgun Gothic', sans-serif; max-width: 800px;">
-        ${title ? `<h1 style="text-align: center; font-size: 24px; margin-bottom: 30px;">${title}</h1>` : ''}
+  let html = `<div style="font-family: 'Batang', 'Malgun Gothic', sans-serif; max-width: 800px;">
+    ${title ? `<h1 style="text-align: center; font-size: 24px; margin-bottom: 30px;">${title}</h1>` : ''}
   `;
 
   for (let index = 0; index < questions.length; index++) {
@@ -255,12 +265,10 @@ const generatePlatformHTML = async (title: string, questions: Question[], startI
             <td style="vertical-align: top; padding-top: 5px;">
     `;
 
-    // 블록 렌더링
     for (const block of (q.blocks || [])) {
       if (block.type === 'text') {
         let content = block.content || '';
         content = applyAutoItalic(content);
-        // HWP가 CSS flex 분수를 무시하므로 순수 텍스트로 치환
         content = sanitizeFractionsForHWP(content);
         html += `<div style="font-size: 15px; line-height: 1.6; margin-bottom: 15px;">${content}</div>`;
       }
@@ -294,27 +302,27 @@ const generatePlatformHTML = async (title: string, questions: Question[], startI
         `;
       }
       else if (block.type === 'image' && block.imageUrl) {
-        // base64 이미지는 HWP에서 직접 인식됨. width/height 명시 필수
-        html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${block.imageUrl}" width="400" /></div>`;
+        // base64 이미지: width + height 명시 필수 (HWP가 크기 없으면 무시)
+        html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${block.imageUrl}" width="400" height="300" /></div>`;
       }
       else if (block.type === 'ai-generator' && block.svgContent) {
-        // SVG → PNG로 완전히 래스터화하여 HWP가 일반 사진처럼 인식하게 함
+        // SVG → 반드시 PNG로 래스터화
         const pngDataUrl = await svgToPngBase64(block.svgContent);
         if (pngDataUrl) {
-          html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${pngDataUrl}" width="400" /></div>`;
+          html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${pngDataUrl}" width="400" height="300" /></div>`;
         }
       }
       else if (block.type === 'graph' && block.graphData) {
-        // 그래프 데이터로부터 SVG를 직접 구성한 뒤 PNG로 베이킹
+        // 그래프 데이터 → SVG 생성 → PNG 베이킹
         const graphSvg = renderGraphToSvg(block.graphData);
         const pngDataUrl = await svgToPngBase64(graphSvg);
         if (pngDataUrl) {
-          html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${pngDataUrl}" width="400" /></div>`;
+          html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${pngDataUrl}" width="400" height="300" /></div>`;
         }
       }
     }
 
-    // 객관식 보기 렌더링 — ①②③④⑤ 원문자 번호 필수
+    // 객관식 보기 — ①②③④⑤ 원문자
     if (q.options && q.options.length > 0) {
       html += `<table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 15px; width: 100%;"><tr>`;
       q.options.forEach((opt, optIdx) => {
@@ -332,6 +340,6 @@ const generatePlatformHTML = async (title: string, questions: Question[], startI
     `;
   }
 
-  html += `</div></body></html>`;
+  html += `</div>`;
   return html;
 };
