@@ -244,35 +244,41 @@ const sanitizeFractionsForHWP = (html: string): string => {
 
 /**
  * HWP 호환 HTML 생성
- * - table 레이아웃 기반 (HWP가 가장 잘 인식)
- * - <sup>, <sub> 태그 그대로 유지 (execCommand copy 시 CF_HTML로 보존됨)
- * - 이미지는 PNG data URL + 명시적 width/height
+ * - 레이아웃용 table 사용 금지! (HWP가 실제 표로 인식하므로)
+ * - 문항번호는 <span>으로 인라인, 본문은 <p>/<div>
+ * - 보기는 <span>+공백으로 가로 나열
+ * - 이미지는 독립 <p> 블록으로 배치
+ * - 실제 데이터 표(표 포함 블록)와 ㄱㄴㄷ 박스만 <table> 사용
  */
 const generatePlatformHTML = async (title: string, questions: Question[], startIndex: number = 0) => {
-  let html = `<div style="font-family: 'Batang', 'Malgun Gothic', sans-serif; max-width: 800px;">
-    ${title ? `<h1 style="text-align: center; font-size: 24px; margin-bottom: 30px;">${title}</h1>` : ''}
+  let html = `<div style="font-family: 'Batang', 'Malgun Gothic', sans-serif;">
+    ${title ? `<p style="text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 30px;">${title}</p>` : ''}
   `;
 
   for (let index = 0; index < questions.length; index++) {
     const q = questions[index];
-    html += `
-      <div style="margin-bottom: 30px; page-break-inside: avoid;">
-        <table style="width: 100%; border-collapse: collapse; border: none;">
-          <tr>
-            <td style="width: 30px; vertical-align: top; padding-top: 5px; font-weight: bold; font-size: 16px;">
-              ${startIndex + index + 1}.
-            </td>
-            <td style="vertical-align: top; padding-top: 5px;">
-    `;
 
-    for (const block of (q.blocks || [])) {
+    // 문항 시작 — table 없이 div로 구성
+    html += `<div style="margin-bottom: 25px;">`;
+
+    // 블록 렌더링
+    for (let bi = 0; bi < (q.blocks || []).length; bi++) {
+      const block = q.blocks[bi];
+
       if (block.type === 'text') {
         let content = block.content || '';
         content = applyAutoItalic(content);
         content = sanitizeFractionsForHWP(content);
-        html += `<div style="font-size: 15px; line-height: 1.6; margin-bottom: 15px;">${content}</div>`;
+
+        // 첫 번째 텍스트 블록에 문항번호를 앞에 붙임
+        if (bi === 0) {
+          html += `<p style="font-size: 15px; line-height: 1.6; margin-bottom: 10px;"><span style="font-weight: bold; font-size: 16px; margin-right: 5px;">${startIndex + index + 1}.</span>${content}</p>`;
+        } else {
+          html += `<p style="font-size: 15px; line-height: 1.6; margin-bottom: 10px;">${content}</p>`;
+        }
       }
       else if (block.type === 'table' && block.tableData) {
+        // 실제 데이터 표 — 이건 진짜 표이므로 table 사용
         html += `<table style="width: 100%; border-collapse: collapse; border: 1px solid black; margin-bottom: 15px;">`;
         block.tableData.cells.forEach(row => {
           html += `<tr>`;
@@ -286,6 +292,7 @@ const generatePlatformHTML = async (title: string, questions: Question[], startI
         html += `</table>`;
       }
       else if (block.type === 'box-gnd' && block.boxList) {
+        // ㄱㄴㄷ 보기 박스 — 실제 테두리가 필요하므로 table 유지
         html += `
           <table width="100%" border="1" cellspacing="0" cellpadding="0" style="width: 100%; border-collapse: collapse; border: 1px solid black; margin-bottom: 20px; margin-top: 15px;">
             <tr>
@@ -302,42 +309,47 @@ const generatePlatformHTML = async (title: string, questions: Question[], startI
         `;
       }
       else if (block.type === 'image' && block.imageUrl) {
-        // base64 이미지: width + height 명시 필수 (HWP가 크기 없으면 무시)
-        html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${block.imageUrl}" width="400" height="300" /></div>`;
+        // 이미지 — 독립 p 블록으로 배치 (글자 취급 방지)
+        html += `<p style="text-align: center; margin-bottom: 15px;"><img src="${block.imageUrl}" width="400" height="300" /></p>`;
       }
       else if (block.type === 'ai-generator' && block.svgContent) {
-        // SVG → 반드시 PNG로 래스터화
         const pngDataUrl = await svgToPngBase64(block.svgContent);
         if (pngDataUrl) {
-          html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${pngDataUrl}" width="400" height="300" /></div>`;
+          html += `<p style="text-align: center; margin-bottom: 15px;"><img src="${pngDataUrl}" width="400" height="300" /></p>`;
         }
       }
       else if (block.type === 'graph' && block.graphData) {
-        // 그래프 데이터 → SVG 생성 → PNG 베이킹
         const graphSvg = renderGraphToSvg(block.graphData);
         const pngDataUrl = await svgToPngBase64(graphSvg);
         if (pngDataUrl) {
-          html += `<div style="text-align: center; margin-bottom: 15px;"><img src="${pngDataUrl}" width="400" height="300" /></div>`;
+          html += `<p style="text-align: center; margin-bottom: 15px;"><img src="${pngDataUrl}" width="400" height="300" /></p>`;
         }
       }
     }
 
-    // 객관식 보기 — ①②③④⑤ 원문자
-    if (q.options && q.options.length > 0) {
-      html += `<table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 15px; width: 100%;"><tr>`;
-      q.options.forEach((opt, optIdx) => {
-        const circleNum = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧'][optIdx] || `(${optIdx + 1})`;
-        html += `<td style="font-size: 15px; padding-right: 15px; white-space: nowrap;">${circleNum}&nbsp;${applyAutoItalic(opt)}</td>`;
-      });
-      html += `</tr></table>`;
+    // 첫 번째 블록이 text가 아닌 경우 (문항번호가 아직 안 나왔을 수 있음)
+    if (!q.blocks?.length || q.blocks[0].type !== 'text') {
+      html = html.replace(
+        `<div style="margin-bottom: 25px;">`,
+        `<div style="margin-bottom: 25px;"><p style="font-weight: bold; font-size: 16px;">${startIndex + index + 1}.</p>`
+      );
     }
 
-    html += `
-            </td>
-          </tr>
-        </table>
-      </div>
-    `;
+    // 객관식 보기 — table 대신 span+공백으로 가로 나열
+    if (q.options && q.options.length > 0) {
+      html += `<p style="font-size: 15px; margin-top: 10px;">`;
+      q.options.forEach((opt, optIdx) => {
+        const circleNum = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧'][optIdx] || `(${optIdx + 1})`;
+        // 각 보기 사이에 충분한 공백(Tab 문자 3개 분량)을 넣어 가로 배치
+        html += `${circleNum}\u00A0${applyAutoItalic(opt)}`;
+        if (optIdx < q.options.length - 1) {
+          html += `\u00A0\u00A0\u00A0\u00A0\u00A0`;  // 보기 간격 (nbsp 5개)
+        }
+      });
+      html += `</p>`;
+    }
+
+    html += `</div>`;
   }
 
   html += `</div>`;
